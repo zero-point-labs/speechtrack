@@ -462,10 +462,7 @@ export default function Dashboard() {
             className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] md:h-[calc(100vh-4rem)] max-h-[80vh] md:max-h-[90vh] flex flex-col overflow-hidden relative mt-16 md:mt-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Mobile pull indicator */}
-            <div className="md:hidden flex justify-center pt-3 pb-2">
-              <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
-            </div>
+
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 sm:p-6 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
@@ -489,18 +486,7 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* Achievement Banner */}
-              {selectedSession.achievement && (
-                <div className="bg-white/10 rounded-lg p-4 flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full ${getAchievementColor(selectedSession.achievement.type)} flex items-center justify-center`}>
-                    {getAchievementIcon(selectedSession.achievement.icon)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{selectedSession.achievement.title}</h3>
-                    <p className="text-blue-100 text-sm">{selectedSession.achievement.description}</p>
-                  </div>
-                </div>
-              )}
+
             </div>
 
             {/* Modal Content - Single Scrollable Section */}
