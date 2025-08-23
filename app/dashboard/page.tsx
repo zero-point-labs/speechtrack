@@ -459,7 +459,7 @@ export default function Dashboard() {
                 setFirstModalOpen(false);
               }
             }}
-            className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-4xl h-[95vh] md:h-[calc(100vh-4rem)] max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden relative"
+            className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] md:h-[calc(100vh-4rem)] max-h-[80vh] md:max-h-[90vh] flex flex-col overflow-hidden relative mt-16 md:mt-0"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Mobile pull indicator */}
@@ -997,13 +997,13 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Timeline */}
-      <div className="relative">
+      <div className="relative px-2 md:px-0">
         {/* Timeline Line */}
-        <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500 opacity-30"></div>
+        <div className="absolute left-5 md:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500 opacity-30"></div>
         
         {/* Progress Line */}
         <motion.div 
-          className="absolute left-8 top-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"
+          className="absolute left-5 md:left-8 top-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"
           initial={{ height: 0 }}
           animate={{ 
             height: `${(mockChild.completedSessions / mockSessions.length) * 100}%` 
@@ -1012,7 +1012,7 @@ export default function Dashboard() {
         />
 
         {/* Session Cards */}
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
         {mockSessions.map((session, index) => (
           <motion.div
             key={session.id}
@@ -1028,7 +1028,7 @@ export default function Dashboard() {
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
                 className={`
-                  w-16 h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-10
+                  w-10 h-10 md:w-16 md:h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-10
                   ${session.status === "completed" 
                     ? "bg-gradient-to-br from-green-400 to-green-600" 
                     : session.status === "available"
@@ -1038,11 +1038,11 @@ export default function Dashboard() {
                 `}
               >
                 {session.status === "completed" ? (
-                  <CheckCircle className="w-8 h-8 text-white" />
+                  <CheckCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
                 ) : session.status === "available" ? (
-                  <PlayCircle className="w-8 h-8 text-white" />
+                  <PlayCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
                 ) : (
-                  <Lock className="w-6 h-6 text-white" />
+                  <Lock className="w-4 h-4 md:w-6 md:h-6 text-white" />
                 )}
               </motion.div>
 
@@ -1053,7 +1053,7 @@ export default function Dashboard() {
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 + 0.6 }}
                   className={`
-                    absolute -top-2 -right-2 w-8 h-8 rounded-full ${getAchievementColor(session.achievement.type)} 
+                    absolute -top-1 -right-1 md:-top-2 md:-right-2 w-6 h-6 md:w-8 md:h-8 rounded-full ${getAchievementColor(session.achievement.type)} 
                     flex items-center justify-center text-white shadow-lg border-2 border-white
                   `}
                 >
@@ -1063,7 +1063,7 @@ export default function Dashboard() {
             </div>
 
             {/* Session Card */}
-            <div className="ml-24">
+            <div className="ml-16 md:ml-24">
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -1087,110 +1087,59 @@ export default function Dashboard() {
                     }
                   }}
                 >
-                  <div className="px-6 py-5">
+                  <div className="px-4 md:px-6 py-4 md:py-5">
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <h4 className="font-semibold text-gray-900 text-lg group-hover:text-blue-700 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        {/* Main session info */}
+                        <div className="flex items-center flex-wrap gap-2 mb-2">
+                          <h4 className="font-semibold text-gray-900 text-base md:text-lg group-hover:text-blue-700 transition-colors">
                             Session {session.sessionNumber}
                           </h4>
                           <Badge 
                             variant={session.isPaid ? "default" : "destructive"}
-                            className={session.isPaid ? "bg-green-100 text-green-800 border-green-300" : ""}
+                            className={`text-xs ${session.isPaid ? "bg-green-100 text-green-800 border-green-300" : ""}`}
                           >
                             {session.isPaid ? "Πληρωμένη" : "Απλήρωτη"}
                           </Badge>
-                          {session.status !== "locked" && (
-                            <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50">
-                              Κλικ για προβολή
-                            </Badge>
+                          {session.achievement && session.status === "completed" && (
+                            <div className={`
+                              inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium text-white
+                              ${getAchievementColor(session.achievement.type)}
+                            `}>
+                              {getAchievementIcon(session.achievement.icon)}
+                              <span className="hidden sm:inline ml-1">{session.achievement.title}</span>
+                            </div>
                           )}
                         </div>
                         
-                        <h5 className="font-medium text-gray-700 mb-3 group-hover:text-gray-900 transition-colors">
+                        <h5 className="font-medium text-gray-700 text-sm md:text-base mb-2 group-hover:text-gray-900 transition-colors line-clamp-1">
                           {session.title}
                         </h5>
                         
-                        {/* Achievement Preview */}
-                        {session.achievement && session.status === "completed" && (
-                          <motion.div
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="flex items-center space-x-2 mb-3"
-                          >
-                            <div className={`
-                              w-6 h-6 rounded-full ${getAchievementColor(session.achievement.type)} 
-                              flex items-center justify-center text-white shadow-sm
-                            `}>
-                              {getAchievementIcon(session.achievement.icon)}
-                            </div>
-                            <span className="text-sm font-medium text-gray-700">
-                              🎉 {session.achievement.title}
-                            </span>
-                          </motion.div>
-                        )}
-
-                        {/* Session Preview Info */}
-                        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                        {/* Essential metadata */}
+                        <div className="flex items-center space-x-3 text-xs md:text-sm text-gray-600">
                           <span className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
+                            <Calendar className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                             {new Date(session.date).toLocaleDateString('el-GR')}
                           </span>
                           <span className="flex items-center">
-                            <Clock className="w-4 h-4 mr-1" />
+                            <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                             {session.duration}
                           </span>
-                          {session.skillsWorkedOn.length > 0 && (
-                            <span className="flex items-center">
-                              <Target className="w-4 h-4 mr-1" />
-                              {session.skillsWorkedOn.length} δεξιότητες
-                            </span>
-                          )}
                         </div>
 
-                        {/* Quick Preview */}
-                        {session.status !== "locked" && session.sessionSummary && (
-                          <p className="text-sm text-gray-600 line-clamp-2 group-hover:text-gray-700 transition-colors">
-                            {session.sessionSummary.slice(0, 120)}...
-                          </p>
-                        )}
-
-                        {/* Material Preview */}
-                        {session.status !== "locked" && (
-                          <div className="flex items-center space-x-4 mt-3 text-xs text-gray-500">
-                            {session.materials.images.length > 0 && (
-                              <span className="flex items-center">
-                                <ImageIcon className="w-3 h-3 mr-1" />
-                                {session.materials.images.length} εικόνες
-                              </span>
-                            )}
-                            {session.materials.pdfs.length > 0 && (
-                              <span className="flex items-center">
-                                <FileText className="w-3 h-3 mr-1" />
-                                {session.materials.pdfs.length} έγγραφα
-                              </span>
-                            )}
-                            {session.materials.videos.length > 0 && (
-                              <span className="flex items-center">
-                                <Video className="w-3 h-3 mr-1" />
-                                {session.materials.videos.length} βίντεο
-                              </span>
-                            )}
-                          </div>
-                        )}
-
                         {session.status === "locked" && (
-                          <div className="text-center py-4">
-                            <Lock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">Ολοκληρώστε τις προηγούμενες συνεδρίες για ξεκλείδωμα</p>
+                          <div className="text-center py-3 mt-2">
+                            <Lock className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                            <p className="text-xs text-gray-500">Ολοκληρώστε τις προηγούμενες συνεδρίες για ξεκλείδωμα</p>
                           </div>
                         )}
                       </div>
 
                       {/* Hover indicator */}
                       {session.status !== "locked" && (
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ChevronRight className="w-5 h-5 text-blue-500" />
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
+                          <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
                         </div>
                       )}
                     </div>
@@ -1258,6 +1207,18 @@ export default function Dashboard() {
 
   const MessagesTab = () => {
     const [newMessage, setNewMessage] = useState("");
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+      const checkIfMobile = () => {
+        setIsMobile(window.innerWidth < 768);
+      };
+      
+      checkIfMobile();
+      window.addEventListener('resize', checkIfMobile);
+      
+      return () => window.removeEventListener('resize', checkIfMobile);
+    }, []);
 
     const formatTime = (timestamp: string) => {
       const date = new Date(timestamp);
@@ -1280,29 +1241,37 @@ export default function Dashboard() {
     };
 
     return (
-      <div className="h-[calc(100vh-200px)] md:h-[600px] flex flex-col bg-white rounded-xl border border-gray-200">
-        {/* Chat Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-          <div className="flex items-center space-x-3">
-            <Avatar className="w-10 h-10">
-              <AvatarFallback className="bg-gradient-to-br from-blue-100 to-purple-100 text-blue-700 font-semibold">
-                ΔΜ
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-semibold text-gray-900">{mockTherapistConversation.therapistName}</h3>
-              <p className="text-sm text-gray-600">Λογοθεραπευτής</p>
-            </div>
+      <div className={`${isMobile ? 'fixed inset-0 z-50' : 'relative h-[calc(100vh-200px)] rounded-xl border border-gray-200'} bg-white flex flex-col`}>
+        {/* Chat Header with Back Button */}
+        <div className="flex items-center space-x-3 p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
+          {isMobile && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="hover:bg-white/50 transition-colors p-2"
+              onClick={() => setActiveTab("journey")}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <Avatar className="w-10 h-10">
+            <AvatarFallback className="bg-gradient-to-br from-blue-100 to-purple-100 text-blue-700 font-semibold">
+              ΔΜ
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 truncate">{mockTherapistConversation.therapistName}</h3>
+            <p className="text-sm text-gray-600">Λογοθεραπευτής</p>
           </div>
           {mockTherapistConversation.unreadCount > 0 && (
-            <Badge className="bg-blue-100 text-blue-800 text-xs">
+            <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">
               {mockTherapistConversation.unreadCount} νέα
             </Badge>
           )}
         </div>
 
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Messages Container - Full Screen Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
           {mockTherapistConversation.messages.map((message: {id: string; sender: string; message: string; timestamp: string; isRead: boolean}, index: number) => {
             const showDate = index === 0 || 
               new Date(message.timestamp).toDateString() !== 
@@ -1313,7 +1282,7 @@ export default function Dashboard() {
                 {/* Date separator */}
                 {showDate && (
                   <div className="flex justify-center mb-4">
-                    <span className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+                    <span className="bg-white text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
                       {formatDate(message.timestamp)}
                     </span>
                   </div>
@@ -1326,10 +1295,10 @@ export default function Dashboard() {
                   transition={{ delay: index * 0.1 }}
                   className={`flex ${message.sender === 'parent' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-[80%] md:max-w-[70%] ${
+                  <div className={`max-w-[85%] md:max-w-[70%] ${
                     message.sender === 'parent' 
                       ? 'bg-blue-500 text-white rounded-l-2xl rounded-tr-2xl rounded-br-md' 
-                      : 'bg-gray-100 text-gray-900 rounded-r-2xl rounded-tl-2xl rounded-bl-md'
+                      : 'bg-white text-gray-900 rounded-r-2xl rounded-tl-2xl rounded-bl-md border border-gray-200'
                   } p-3 shadow-sm`}>
                     <p className="text-sm leading-relaxed">{message.message}</p>
                     <div className={`flex items-center justify-end mt-2 space-x-1 ${
@@ -1345,10 +1314,12 @@ export default function Dashboard() {
               </div>
             );
           })}
+          {/* Bottom padding to ensure last message is visible above input */}
+          <div className="h-4"></div>
         </div>
 
-        {/* Message Input */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        {/* Message Input - Fixed at Bottom */}
+        <div className="p-4 border-t border-gray-200 bg-white flex-shrink-0">
           <div className="flex space-x-3">
             <div className="flex-1">
               <Textarea
@@ -1368,7 +1339,7 @@ export default function Dashboard() {
                 }
               }}
               disabled={!newMessage.trim()}
-              className="bg-blue-500 hover:bg-blue-600 px-6 h-auto"
+              className="bg-blue-500 hover:bg-blue-600 px-4 h-auto flex-shrink-0"
             >
               <Send className="w-4 h-4" />
             </Button>
@@ -1378,18 +1349,32 @@ export default function Dashboard() {
     );
   };
 
+  const [isMobileMessagesFullscreen, setIsMobileMessagesFullscreen] = useState(false);
+
+  useEffect(() => {
+    const checkMobileMessagesFullscreen = () => {
+      setIsMobileMessagesFullscreen(activeTab === "messages" && window.innerWidth < 768);
+    };
+    
+    checkMobileMessagesFullscreen();
+    window.addEventListener('resize', checkMobileMessagesFullscreen);
+    
+    return () => window.removeEventListener('resize', checkMobileMessagesFullscreen);
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Session Modal */}
       {SessionModal}
       
-      {/* Enhanced Header */}
-      <motion.header 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="bg-white/95 backdrop-blur-sm border-b border-gray-200/50 px-4 py-4 sticky top-0 z-50"
-      >
+      {/* Enhanced Header - Hidden when in mobile fullscreen messages */}
+      {!isMobileMessagesFullscreen && (
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="bg-white/95 backdrop-blur-sm border-b border-gray-200/50 px-4 py-4 sticky top-0 z-50"
+        >
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-3">
             <Button 
@@ -1431,9 +1416,66 @@ export default function Dashboard() {
             </motion.div>
           </div>
         </div>
-      </motion.header>
+        </motion.header>
+      )}
 
-      {/* Main Content */}
+      {/* Desktop Navigation Tabs - Only visible on desktop and not in mobile fullscreen messages */}
+      {!isMobileMessagesFullscreen && (
+        <motion.nav 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="hidden md:block bg-white border-b border-gray-200 sticky top-[73px] z-40"
+        >
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex space-x-1">
+              <button
+                onClick={() => setActiveTab("journey")}
+                className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "journey"
+                    ? "text-blue-600 border-blue-600 bg-blue-50/50"
+                    : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Πορεία Θεραπείας</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("profile")}
+                className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "profile"
+                    ? "text-blue-600 border-blue-600 bg-blue-50/50"
+                    : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>Προφίλ Παιδιού</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("messages")}
+                className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors relative ${
+                  activeTab === "messages"
+                    ? "text-blue-600 border-blue-600 bg-blue-50/50"
+                    : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"
+                }`}
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Μηνύματα</span>
+                {mockTherapistConversation.unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {mockTherapistConversation.unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </motion.nav>
+      )}
+
+      {/* Main Content - Hidden when in mobile fullscreen messages */}
+      {!isMobileMessagesFullscreen && (
       <main className="pb-20 md:pb-6">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {activeTab === "journey" && <JourneyBoard />}
@@ -1441,8 +1483,13 @@ export default function Dashboard() {
           {activeTab === "messages" && <MessagesTab />}
         </div>
       </main>
+      )}
+      
+      {/* Mobile Fullscreen Messages */}
+      {isMobileMessagesFullscreen && <MessagesTab />}
 
-      {/* Enhanced Mobile Navigation Dock */}
+      {/* Enhanced Mobile Navigation Dock - Only on mobile and not in fullscreen messages */}
+      {!isMobileMessagesFullscreen && (
       <motion.nav 
         initial={{ y: 100 }}
         animate={{ y: 0 }}
@@ -1524,6 +1571,7 @@ export default function Dashboard() {
           </motion.button>
         </div>
       </motion.nav>
+      )}
 
       {/* Desktop Sidebar (for future implementation) */}
       <div className="hidden md:block">
