@@ -978,18 +978,18 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
-              <div className="px-1">
-                <div className="text-xl md:text-2xl font-bold text-blue-600">{mockChild.completedSessions}</div>
-                <div className="text-xs md:text-sm text-gray-600 leading-tight">Ολοκληρωμένες</div>
+            <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-4 text-center">
+              <div className="flex justify-between items-center md:flex-col md:justify-center">
+                <div className="text-sm text-gray-600 md:order-2 md:text-sm">Ολοκληρωμένες</div>
+                <div className="text-2xl md:text-2xl font-bold text-blue-600 md:order-1">{mockChild.completedSessions}</div>
               </div>
-              <div className="px-1">
-                <div className="text-xl md:text-2xl font-bold text-orange-600">{mockChild.totalSessions - mockChild.completedSessions}</div>
-                <div className="text-xs md:text-sm text-gray-600 leading-tight">Υπολοίπονται</div>
+              <div className="flex justify-between items-center md:flex-col md:justify-center">
+                <div className="text-sm text-gray-600 md:order-2 md:text-sm">Υπολοίπονται</div>
+                <div className="text-2xl md:text-2xl font-bold text-orange-600 md:order-1">{mockChild.totalSessions - mockChild.completedSessions}</div>
               </div>
-              <div className="px-1">
-                <div className="text-xl md:text-2xl font-bold text-purple-600">3</div>
-                <div className="text-xs md:text-sm text-gray-600 leading-tight">Επιτεύγματα</div>
+              <div className="flex justify-between items-center md:flex-col md:justify-center">
+                <div className="text-sm text-gray-600 md:order-2 md:text-sm">Επιτεύγματα</div>
+                <div className="text-2xl md:text-2xl font-bold text-purple-600 md:order-1">3</div>
               </div>
             </div>
           </CardContent>
@@ -1012,7 +1012,7 @@ export default function Dashboard() {
         />
 
         {/* Session Cards */}
-        <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+        <div className="space-y-6 md:space-y-8 pb-32 md:pb-8">
         {mockSessions.map((session, index) => (
           <motion.div
             key={session.id}
@@ -1028,7 +1028,7 @@ export default function Dashboard() {
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
                 className={`
-                  w-10 h-10 md:w-16 md:h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-10
+                  w-10 h-10 md:w-16 md:h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-[5] md:z-10
                   ${session.status === "completed" 
                     ? "bg-gradient-to-br from-green-400 to-green-600" 
                     : session.status === "available"
@@ -1494,7 +1494,7 @@ export default function Dashboard() {
         initial={{ y: 100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6, delay: 0.3 }}
-        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200/50 md:hidden shadow-lg"
+        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200/50 md:hidden shadow-lg z-50"
       >
         <div className="flex items-center justify-around py-3 px-4 max-w-sm mx-auto">
           <motion.button
