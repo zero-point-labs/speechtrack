@@ -884,8 +884,15 @@ export default function AdminPage() {
                     />
                   </div>
 
+                {/* File Materials Section */}
+                <div className="bg-gray-50 rounded-xl p-4 md:p-6 space-y-6">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                    <Folder className="w-6 h-6 mr-3 text-blue-600" />
+                    Υλικό Συνεδρίας
+                  </h2>
+
                 {/* PDF Files Section */}
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                   <div className="p-4 border-b border-gray-100">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -916,34 +923,37 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="p-4">
-                    <div className="space-y-2">
+                  <div className="p-4 md:p-6">
+                    <div className="space-y-3 md:space-y-2">
                       {editingData.materials?.pdfs?.map((file: SessionFileData) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                         >
-                          <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
+                          <div className="flex items-start md:items-center space-x-3 flex-1 min-w-0">
+                            <FileText className="w-6 h-6 md:w-5 md:h-5 text-red-500 flex-shrink-0 mt-0.5 md:mt-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                              <p className="text-xs text-gray-500">{file.size} • {file.uploadDate}</p>
-                  </div>
+                              <p className="text-sm md:text-sm font-medium text-gray-900 break-words md:truncate leading-tight">{file.name}</p>
+                              <p className="text-xs text-gray-500 mt-1">{file.size} • {file.uploadDate}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2 flex-shrink-0">
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
+                          <div className="flex items-center gap-2 md:gap-2 flex-shrink-0">
+                            <Button size="sm" variant="outline" className="flex-1 md:flex-none min-h-[36px]">
+                              <Eye className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                              <span className="md:hidden">Προβολή</span>
                             </Button>
-                            <Button size="sm" variant="outline">
-                              <Download className="w-3 h-3" />
+                            <Button size="sm" variant="outline" className="flex-1 md:flex-none min-h-[36px]">
+                              <Download className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                              <span className="md:hidden">Λήψη</span>
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleDeleteFile('pdfs', file.id)}
-                              className="text-red-600 hover:text-red-700 hover:border-red-300"
+                              className="text-red-600 hover:text-red-700 hover:border-red-300 flex-1 md:flex-none min-h-[36px]"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                              <span className="md:hidden">Διαγραφή</span>
                             </Button>
                           </div>
                         </div>
@@ -969,7 +979,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Video Files Section */}
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                   <div className="p-4 border-b border-gray-100">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -1000,37 +1010,40 @@ export default function AdminPage() {
                     </div>
                   </div>
                   
-                  <div className="p-4">
-                    <div className="space-y-2">
+                  <div className="p-4 md:p-6">
+                    <div className="space-y-3 md:space-y-2">
                       {editingData.materials?.videos?.map((file: SessionFileData) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                         >
-                          <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <Video className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                          <div className="flex items-start md:items-center space-x-3 flex-1 min-w-0">
+                            <Video className="w-6 h-6 md:w-5 md:h-5 text-purple-500 flex-shrink-0 mt-0.5 md:mt-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                              <p className="text-xs text-gray-500">{file.size} • {file.uploadDate}</p>
-                      </div>
+                              <p className="text-sm md:text-sm font-medium text-gray-900 break-words md:truncate leading-tight">{file.name}</p>
+                              <p className="text-xs text-gray-500 mt-1">{file.size} • {file.uploadDate}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2 flex-shrink-0">
-                            <Button size="sm" variant="outline">
-                              <PlayCircle className="w-3 h-3" />
+                          <div className="flex items-center gap-2 md:gap-2 flex-shrink-0">
+                            <Button size="sm" variant="outline" className="flex-1 md:flex-none min-h-[36px]">
+                              <PlayCircle className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                              <span className="md:hidden">Αναπαραγωγή</span>
                             </Button>
-                            <Button size="sm" variant="outline">
-                              <Download className="w-3 h-3" />
+                            <Button size="sm" variant="outline" className="flex-1 md:flex-none min-h-[36px]">
+                              <Download className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                              <span className="md:hidden">Λήψη</span>
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleDeleteFile('videos', file.id)}
-                              className="text-red-600 hover:text-red-700 hover:border-red-300"
+                              className="text-red-600 hover:text-red-700 hover:border-red-300 flex-1 md:flex-none min-h-[36px]"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                              <span className="md:hidden">Διαγραφή</span>
                             </Button>
-                      </div>
-                    </div>
+                          </div>
+                        </div>
                       )) || []}
 
                       {uploadingFiles[`${editingData.id}-videos`] && (
@@ -1053,7 +1066,7 @@ export default function AdminPage() {
                   </div>
 
                 {/* Gallery Section */}
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                   <div className="p-4 border-b border-gray-100">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -1089,29 +1102,32 @@ export default function AdminPage() {
                       {editingData.materials?.images?.map((file: SessionFileData) => (
                           <div
                             key={file.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                            className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                           >
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <ImageIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                            <div className="flex items-start md:items-center space-x-3 flex-1 min-w-0">
+                              <ImageIcon className="w-6 h-6 md:w-5 md:h-5 text-blue-500 flex-shrink-0 mt-0.5 md:mt-0" />
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                                <p className="text-xs text-gray-500">{file.size} • {file.uploadDate}</p>
+                                <p className="text-sm md:text-sm font-medium text-gray-900 break-words md:truncate leading-tight">{file.name}</p>
+                                <p className="text-xs text-gray-500 mt-1">{file.size} • {file.uploadDate}</p>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0">
-                              <Button size="sm" variant="outline">
-                                <Eye className="w-3 h-3" />
+                            <div className="flex items-center gap-2 md:gap-2 flex-shrink-0">
+                              <Button size="sm" variant="outline" className="flex-1 md:flex-none min-h-[36px]">
+                                <Eye className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                                <span className="md:hidden">Προβολή</span>
                               </Button>
-                              <Button size="sm" variant="outline">
-                                <Download className="w-3 h-3" />
+                              <Button size="sm" variant="outline" className="flex-1 md:flex-none min-h-[36px]">
+                                <Download className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                                <span className="md:hidden">Λήψη</span>
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                              onClick={() => handleDeleteFile('images', file.id)}
-                                className="text-red-600 hover:text-red-700 hover:border-red-300"
+                                onClick={() => handleDeleteFile('images', file.id)}
+                                className="text-red-600 hover:text-red-700 hover:border-red-300 flex-1 md:flex-none min-h-[36px]"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-4 h-4 md:w-3 md:h-3 md:mr-0 mr-2" />
+                                <span className="md:hidden">Διαγραφή</span>
                               </Button>
                             </div>
                           </div>
@@ -1134,6 +1150,7 @@ export default function AdminPage() {
                         )}
                       </div>
                     </div>
+                </div>
                 </div>
 
                 {/* Comments Section */}
