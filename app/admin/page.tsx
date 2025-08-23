@@ -915,10 +915,11 @@ export default function AdminPage() {
                           input.click();
                         }}
                         size="sm"
-                        className="bg-red-600 hover:bg-red-700"
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 h-auto min-h-[40px]"
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        Προσθήκη PDF
+                        <span className="hidden sm:inline">Προσθήκη PDF</span>
+                        <span className="sm:hidden">Αρχεία PDF</span>
                       </Button>
                     </div>
                   </div>
@@ -969,9 +970,10 @@ export default function AdminPage() {
                       )}
 
                       {(!editingData.materials?.pdfs || editingData.materials.pdfs.length === 0) && !uploadingFiles[`${editingData.id}-pdfs`] && (
-                        <div className="text-center py-8 text-gray-500">
-                          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm">Δεν υπάρχουν έγγραφα PDF</p>
+                        <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                          <FileText className="w-16 h-16 text-red-300 mx-auto mb-4" />
+                          <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν έγγραφα PDF</p>
+                          <p className="text-xs text-gray-500">Προσθέστε έγγραφα PDF κάνοντας κλικ στο κουμπί παραπάνω</p>
                         </div>
                       )}
                     </div>
@@ -1002,10 +1004,11 @@ export default function AdminPage() {
                           input.click();
                         }}
                         size="sm"
-                        className="bg-purple-600 hover:bg-purple-700"
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 h-auto min-h-[40px]"
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        Προσθήκη Βίντεο
+                        <span className="hidden sm:inline">Προσθήκη Βίντεο</span>
+                        <span className="sm:hidden">Αρχεία Βίντεο</span>
                       </Button>
                     </div>
                   </div>
@@ -1056,9 +1059,10 @@ export default function AdminPage() {
               )}
 
                       {(!editingData.materials?.videos || editingData.materials.videos.length === 0) && !uploadingFiles[`${editingData.id}-videos`] && (
-                        <div className="text-center py-8 text-gray-500">
-                          <Video className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm">Δεν υπάρχουν βίντεο</p>
+                        <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                          <Video className="w-16 h-16 text-purple-300 mx-auto mb-4" />
+                          <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν βίντεο</p>
+                          <p className="text-xs text-gray-500">Προσθέστε αρχεία βίντεο κάνοντας κλικ στο κουμπί παραπάνω</p>
                         </div>
                       )}
                     </div>
@@ -1081,18 +1085,19 @@ export default function AdminPage() {
                             const input = document.createElement('input');
                             input.type = 'file';
                             input.multiple = true;
-                          input.accept = 'image/*';
+                            input.accept = 'image/*';
                             input.onchange = (e) => {
                               const files = Array.from((e.target as HTMLInputElement).files || []);
-                            if (files.length && editingData.id) handleFileUpload(editingData.id, 'images', files);
+                              if (files.length && editingData.id) handleFileUpload(editingData.id, 'images', files);
                             };
                             input.click();
                           }}
                           size="sm"
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 h-auto min-h-[40px]"
                         >
                           <Upload className="w-4 h-4 mr-2" />
-                        Προσθήκη Εικόνων
+                          <span className="hidden sm:inline">Προσθήκη Εικόνων</span>
+                          <span className="sm:hidden">Εικόνες</span>
                         </Button>
                     </div>
                       </div>
@@ -1143,11 +1148,12 @@ export default function AdminPage() {
                         )}
 
                       {(!editingData.materials?.images || editingData.materials.images.length === 0) && !uploadingFiles[`${editingData.id}-images`] && (
-                          <div className="text-center py-8 text-gray-500">
-                          <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm">Δεν υπάρχουν εικόνες</p>
-                          </div>
-                        )}
+                        <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                          <ImageIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+                          <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν εικόνες</p>
+                          <p className="text-xs text-gray-500">Προσθέστε εικόνες κάνοντας κλικ στο κουμπί παραπάνω</p>
+                        </div>
+                      )}
                       </div>
                     </div>
                 </div>
