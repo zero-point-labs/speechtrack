@@ -925,7 +925,7 @@ export default function Dashboard() {
   ]);
 
   const JourneyBoard = () => (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-8 md:pb-0">
       {/* Enhanced Progress Overview */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -978,18 +978,18 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-blue-600">{mockChild.completedSessions}</div>
-                <div className="text-sm text-gray-600">Ολοκληρωμένες</div>
+            <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+              <div className="px-1">
+                <div className="text-xl md:text-2xl font-bold text-blue-600">{mockChild.completedSessions}</div>
+                <div className="text-xs md:text-sm text-gray-600 leading-tight">Ολοκληρωμένες</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-orange-600">{mockChild.totalSessions - mockChild.completedSessions}</div>
-                <div className="text-sm text-gray-600">Υπολοίπονται</div>
+              <div className="px-1">
+                <div className="text-xl md:text-2xl font-bold text-orange-600">{mockChild.totalSessions - mockChild.completedSessions}</div>
+                <div className="text-xs md:text-sm text-gray-600 leading-tight">Υπολοίπονται</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-600">3</div>
-                <div className="text-sm text-gray-600">Επιτεύγματα</div>
+              <div className="px-1">
+                <div className="text-xl md:text-2xl font-bold text-purple-600">3</div>
+                <div className="text-xs md:text-sm text-gray-600 leading-tight">Επιτεύγματα</div>
               </div>
             </div>
           </CardContent>
@@ -1012,7 +1012,7 @@ export default function Dashboard() {
         />
 
         {/* Session Cards */}
-        <div className="space-y-6 md:space-y-8">
+        <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
         {mockSessions.map((session, index) => (
           <motion.div
             key={session.id}
@@ -1476,7 +1476,7 @@ export default function Dashboard() {
 
       {/* Main Content - Hidden when in mobile fullscreen messages */}
       {!isMobileMessagesFullscreen && (
-      <main className="pb-20 md:pb-6">
+      <main className="pb-4 md:pb-6">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {activeTab === "journey" && <JourneyBoard />}
           {activeTab === "profile" && <ProfileTab />}
