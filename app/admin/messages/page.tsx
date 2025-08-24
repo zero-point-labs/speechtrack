@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -39,10 +39,23 @@ const mockConversations = [
   }
 ];
 
-export default function MessagesPage() {
+function MessagesPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
+
+  // Check for student parameter in URL to auto-select conversation
+  useEffect(() => {
+    const studentId = searchParams.get('student');
+    if (studentId) {
+      // Verify the student exists in our conversations
+      const studentExists = mockConversations.find(c => c.studentId === studentId);
+      if (studentExists) {
+        setSelectedConversation(studentId);
+      }
+    }
+  }, [searchParams]);
 
   // Event handlers
   const handleBackToAdmin = useCallback(() => {
@@ -218,5 +231,20 @@ export default function MessagesPage() {
         <div className="h-8"></div>
       </div>
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Φόρτωση μηνυμάτων...</p>
+        </div>
+      </div>
+    }>
+      <MessagesPageContent />
+    </Suspense>
   );
 }

@@ -308,9 +308,8 @@ export default function AdminPage() {
   }, [router]);
 
   const handleEditStudent = useCallback((student: Student) => {
-    // For now, just log - we can implement edit functionality later
-    console.log('Edit student:', student);
-  }, []);
+    router.push(`/admin/edit-student/${student.id}`);
+  }, [router]);
 
   const handleDeleteStudent = useCallback((studentId: string) => {
     setStudents(prev => prev.filter(s => s.id !== studentId));
@@ -409,7 +408,7 @@ export default function AdminPage() {
   
 
   const handleStudentMessageClick = useCallback((studentId: string) => {
-    router.push('/admin/messages');
+    router.push(`/admin/messages?student=${studentId}`);
   }, [router]);
 
   const handleMessagesClick = useCallback(() => {
