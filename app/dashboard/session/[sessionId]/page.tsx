@@ -405,7 +405,7 @@ export default function SessionPage() {
             <div className="space-y-3">
               {session.feedback.map((comment) => (
                 <div key={comment.id} className={`p-4 rounded-lg ${comment.type === 'therapist' ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-green-50 border-l-4 border-green-400'}`}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 space-y-1 sm:space-y-0">
                     <span className="font-medium text-gray-900">{comment.author}</span>
                     <div className="flex items-center space-x-2">
                       <Badge variant={comment.type === 'therapist' ? 'default' : 'secondary'}>

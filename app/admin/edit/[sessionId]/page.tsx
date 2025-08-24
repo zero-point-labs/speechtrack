@@ -104,13 +104,28 @@ export default function SessionEditPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
   
-  const [sessionData, setSessionData] = useState<SessionData>(mockSessionData);
+  // Check if this is a new session based on sessionId (timestamp-based IDs are new sessions)
+  const isNewSession = sessionId && /^\d{13}$/.test(sessionId); // 13-digit timestamp
+  
+  // Use empty data for new sessions, mock data for existing ones
+  const initialSessionData = isNewSession ? {
+    id: sessionId,
+    studentId: "1",
+    sessionNumber: 1,
+    title: "",
+    date: new Date().toISOString().split('T')[0],
+    duration: "45 λεπτά",
+    status: "scheduled" as const,
+    therapistNotes: "",
+    sessionSummary: "",
+    materials: { pdfs: [], videos: [], images: [] },
+    feedback: []
+  } : mockSessionData;
+  
+  const [sessionData, setSessionData] = useState<SessionData>(initialSessionData);
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: boolean}>({});
   const [newComment, setNewComment] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Check if this is a new session (no feedback exists and basic fields are empty)
-  const isNewSession = !sessionData.feedback?.length && !sessionData.sessionSummary && !sessionData.therapistNotes;
 
   // File upload handler
   const handleFileUpload = (sessionId: string, fileType: string, files: File[]) => {
