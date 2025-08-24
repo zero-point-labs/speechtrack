@@ -34,9 +34,7 @@ import {
   X,
   Save,
   ArrowLeft,
-  Users,
-  BarChart3,
-  Star
+  Users
 } from "lucide-react";
 
 // Interface for Journey Session
@@ -1005,17 +1003,7 @@ export default function AdminPage() {
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setActiveTab("analytics")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "analytics"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <BarChart3 className="w-4 h-4 inline mr-2" />
-              Αναλυτικά
-            </button>
+
           </nav>
         </div>
 
@@ -1131,50 +1119,7 @@ export default function AdminPage() {
           
           {activeTab === "messages" && MessagesTab}
 
-          {activeTab === "analytics" && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Αναλυτικά Στοιχεία</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Συνολικοί Μαθητές</p>
-                        <p className="text-3xl font-bold text-gray-900">{students.length}</p>
-                      </div>
-                      <Users className="w-8 h-8 text-blue-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Ολοκληρωμένες Συνεδρίες</p>
-                        <p className="text-3xl font-bold text-gray-900">
-                          {journeySessions.filter(s => s.status === 'completed').length}
-                        </p>
-                      </div>
-                      <CheckCircle className="w-8 h-8 text-green-500" />
-                    </div>
-                  </CardContent>
-                </Card>
 
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Μέσος Όρος Αξιολόγησης</p>
-                        <p className="text-3xl font-bold text-gray-900">4.8</p>
-                      </div>
-                      <Star className="w-8 h-8 text-yellow-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
