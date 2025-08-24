@@ -157,7 +157,7 @@ const mockStudents: Student[] = [
     sessionsCompleted: 2,
     totalSessions: 12,
     nextSession: "2024-01-29",
-    therapist: "Δρ. Μαρία Κωνσταντίνου", 
+    therapist: "Μαριλένα Νέστωρος", 
     diagnosis: ["Δυσαρθρία", "Καθυστέρηση Ομιλίας"],
     parentContact: {
       name: "Αννα Παπαδοπούλου",
@@ -175,7 +175,7 @@ const mockStudents: Student[] = [
     sessionsCompleted: 1,
     totalSessions: 8,
     nextSession: "2024-02-01",
-    therapist: "Δρ. Μαρία Κωνσταντίνου",
+    therapist: "Μαριλένα Νέστωρος",
     diagnosis: ["Τραυλισμός"],
     parentContact: {
       name: "Πέτρος Γεωργίου",
@@ -908,6 +908,8 @@ export default function AdminPage() {
                     ? "bg-gradient-to-br from-green-400 to-green-600" 
                     : session.status === "available"
                     ? "bg-gradient-to-br from-blue-400 to-blue-600"
+                    : session.status === "canceled"
+                    ? "bg-gradient-to-br from-red-400 to-red-600"
                     : "bg-gradient-to-br from-gray-300 to-gray-500"
                   }
                     `}
@@ -916,6 +918,8 @@ export default function AdminPage() {
                       <CheckCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
                     ) : session.status === "available" ? (
                       <PlayCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
+                    ) : session.status === "canceled" ? (
+                      <X className="w-5 h-5 md:w-8 md:h-8 text-white" />
                     ) : (
                       <Lock className="w-4 h-4 md:w-6 md:h-6 text-white" />
                     )}
@@ -936,6 +940,8 @@ export default function AdminPage() {
                           ? "bg-gradient-to-br from-white to-green-50/30 border-green-200/50 hover:border-green-300" 
                           : session.status === "available"
                           ? "bg-gradient-to-br from-white to-blue-50/30 border-blue-200/50 hover:border-blue-300"
+                          : session.status === "canceled"
+                          ? "bg-gradient-to-br from-white to-red-50/30 border-red-200/50 hover:border-red-300"
                           : "bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200/50 hover:border-gray-300"
                         }
                       `}

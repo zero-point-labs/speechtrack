@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MessageCircle, Users, BookOpen, ArrowRight, CheckCircle, Heart } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -23,33 +24,48 @@ export default function Home() {
         
         <div className="flex items-center space-x-4">
           {isSignedIn ? (
-            <Button 
-              onClick={() => router.push('/dashboard')}
-              variant="outline"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              Ταμπλό
-            </Button>
+              <Button 
+                onClick={() => router.push('/dashboard')}
+                variant="outline"
+              >
+                Ταμπλό
+              </Button>
+            </motion.div>
           ) : (
             <>
-              <Button 
-                variant="ghost" 
-                onClick={() => {
-                  setIsSignedIn(true);
-                  router.push('/dashboard');
-                }}
-                className="text-gray-600 hover:text-gray-900"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Σύνδεση
-              </Button>
-              <Button 
-                onClick={() => {
-                  setIsSignedIn(true);
-                  router.push('/dashboard');
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    setIsSignedIn(true);
+                    router.push('/dashboard');
+                  }}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Σύνδεση
+                </Button>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Εγγραφή
-              </Button>
+                <Button 
+                  onClick={() => {
+                    setIsSignedIn(true);
+                    router.push('/dashboard');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Εγγραφή
+                </Button>
+              </motion.div>
             </>
           )}
         </div>
@@ -70,38 +86,56 @@ export default function Home() {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             {isSignedIn ? (
-              <Button 
-                size="lg" 
-                className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
-                onClick={() => router.push('/dashboard')}
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2 }}
               >
-                Μετάβαση στο Ταμπλό
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-            ) : (
-              <>
                 <Button 
                   size="lg" 
                   className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
-                  onClick={() => {
-                    setIsSignedIn(true);
-                    router.push('/dashboard');
-                  }}
+                  onClick={() => router.push('/dashboard')}
                 >
-                  Ξεκινήστε Δωρεάν
+                  Μετάβαση στο Ταμπλό
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="text-lg px-8 py-6 border-gray-300"
-                  onClick={() => {
-                    setIsSignedIn(true);
-                    router.push('/dashboard');
-                  }}
+              </motion.div>
+            ) : (
+              <>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  Σύνδεση
-                </Button>
+                  <Button 
+                    size="lg" 
+                    className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
+                    onClick={() => {
+                      setIsSignedIn(true);
+                      router.push('/dashboard');
+                    }}
+                  >
+                    Ξεκινήστε Δωρεάν
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="text-lg px-8 py-6 border-gray-300"
+                    onClick={() => {
+                      setIsSignedIn(true);
+                      router.push('/dashboard');
+                    }}
+                  >
+                    Σύνδεση
+                  </Button>
+                </motion.div>
               </>
             )}
           </div>

@@ -119,7 +119,7 @@ const mockChild = {
   nextSession: "2024-01-15",
   status: "active",
   joinDate: "2024-01-15",
-  therapist: "Δρ. Μαρία Κωνσταντίνου",
+  therapist: "Μαριλένα Νέστωρος",
   diagnosis: ["Δυσαρθρία", "Καθυστέρηση Ομιλίας"],
   parentContact: {
     name: "Αννα Παπαδοπούλου",
@@ -300,7 +300,7 @@ const mockSessions = [
 
 // Mock conversation data for dashboard (single conversation with therapist)
 const mockTherapistConversation = {
-  therapistName: "Δρ. Μαρία Αντωνίου",
+  therapistName: "Μαριλένα Νέστωρος",
   messages: [
     { id: "1", sender: "therapist", message: "Καλημέρα! Πώς πήγε η εξάσκηση σήμερα;", timestamp: "2024-01-15 09:00", isRead: true },
     { id: "2", sender: "parent", message: "Καλημέρα! Η Εμμα ήταν πολύ ενθουσιασμένη και έκανε όλες τις ασκήσεις.", timestamp: "2024-01-15 09:15", isRead: true },
@@ -830,11 +830,11 @@ export default function Dashboard() {
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-                                <div className="flex items-center space-x-2 mb-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-2">
                                   <span className="text-xs sm:text-sm font-medium text-gray-900">
                                     {feedback.author === "parent" ? "Γονέας" : "Θεραπευτής"}
                                   </span>
-                                  <span className="text-xs text-gray-500">{feedback.timestamp}</span>
+                                  <span className="text-xs text-gray-500 mt-1 sm:mt-0">{feedback.timestamp}</span>
                                 </div>
                                 <p className="text-gray-700 text-sm sm:text-base leading-relaxed">{feedback.message}</p>
                               </div>
@@ -1449,7 +1449,6 @@ export default function Dashboard() {
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   SpeechTrack
                 </h1>
-                <p className="text-xs text-gray-500">Ταμπλό Θεραπείας</p>
               </div>
             </div>
           </div>

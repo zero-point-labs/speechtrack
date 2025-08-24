@@ -21,7 +21,8 @@ import {
   Folder,
   MessageCircle,
   Send,
-  User
+  User,
+  Trophy
 } from "lucide-react";
 
 // Types
@@ -40,9 +41,15 @@ interface SessionData {
   title: string;
   date: string;
   duration: string;
-  status: 'completed' | 'in-progress' | 'scheduled';
+  status: 'completed' | 'in-progress' | 'scheduled' | 'canceled';
   therapistNotes: string;
   sessionSummary: string;
+  achievement?: {
+    type: 'milestone' | 'skill' | 'breakthrough';
+    title: string;
+    description: string;
+    icon: 'star' | 'zap' | 'trophy' | 'award';
+  };
   materials: {
     pdfs: SessionFileData[];
     videos: SessionFileData[];
@@ -68,6 +75,12 @@ const mockSessionData: SessionData = {
   status: "completed",
   therapistNotes: "Emma showed great enthusiasm during our first session. We completed a comprehensive assessment of her current speech patterns and identified areas for improvement.",
   sessionSummary: "During this initial session, we focused on building rapport and conducting a thorough speech assessment. Emma demonstrated strong listening skills and was eager to participate in all activities.",
+  achievement: {
+    type: "milestone",
+    title: "Πρώτα Βήματα",
+    description: "Ξεκίνησε το ταξίδι της λογοθεραπείας!",
+    icon: "star"
+  },
   materials: {
     pdfs: [
       { id: "1", name: "Session_1_Assessment_Report.pdf", size: "2.4 MB", uploadDate: "2024-01-01", type: "pdf" },
@@ -95,6 +108,9 @@ export default function SessionEditPage() {
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: boolean}>({});
   const [newComment, setNewComment] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Check if this is a new session (no feedback exists and basic fields are empty)
+  const isNewSession = !sessionData.feedback?.length && !sessionData.sessionSummary && !sessionData.therapistNotes;
 
   // File upload handler
   const handleFileUpload = (sessionId: string, fileType: string, files: File[]) => {
@@ -214,12 +230,13 @@ export default function SessionEditPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Κατάσταση</label>
                   <select 
                     value={sessionData.status}
-                    onChange={(e) => setSessionData({...sessionData, status: e.target.value as 'completed' | 'in-progress' | 'scheduled'})}
+                    onChange={(e) => setSessionData({...sessionData, status: e.target.value as 'completed' | 'in-progress' | 'scheduled' | 'canceled'})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="scheduled">Προγραμματισμένη</option>
                     <option value="in-progress">Σε εξέλιξη</option>
                     <option value="completed">Ολοκληρωμένη</option>
+                    <option value="canceled">Ακυρωμένη</option>
                   </select>
                 </div>
               </div>
@@ -244,6 +261,111 @@ export default function SessionEditPage() {
                 className="min-h-[120px] text-base"
                 rows={5}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Achievement/Trophy Section */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Trophy className="w-5 h-5 text-yellow-500 mr-2" />
+                Επίτευγμα / Βραβείο
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Τύπος Επιτεύγματος</label>
+                  <select 
+                    value={sessionData.achievement?.type || ''}
+                    onChange={(e) => {
+                      const type = e.target.value as 'milestone' | 'skill' | 'breakthrough' | '';
+                      if (type) {
+                        setSessionData({
+                          ...sessionData, 
+                          achievement: {
+                            type,
+                            title: sessionData.achievement?.title || '',
+                            description: sessionData.achievement?.description || '',
+                            icon: sessionData.achievement?.icon || 'star'
+                          }
+                        });
+                      } else {
+                        setSessionData({...sessionData, achievement: undefined});
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Χωρίς επίτευγμα</option>
+                    <option value="milestone">Ορόσημο (Milestone)</option>
+                    <option value="skill">Δεξιότητα (Skill)</option>
+                    <option value="breakthrough">Ανακάλυψη (Breakthrough)</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Εικονίδιο</label>
+                  <select 
+                    value={sessionData.achievement?.icon || 'star'}
+                    onChange={(e) => {
+                      if (sessionData.achievement) {
+                        setSessionData({
+                          ...sessionData, 
+                          achievement: {
+                            ...sessionData.achievement,
+                            icon: e.target.value as 'star' | 'zap' | 'trophy' | 'award'
+                          }
+                        });
+                      }
+                    }}
+                    disabled={!sessionData.achievement}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  >
+                    <option value="star">⭐ Αστέρι</option>
+                    <option value="zap">⚡ Κεραυνός</option>
+                    <option value="trophy">🏆 Τρόπαιο</option>
+                    <option value="award">🥇 Μετάλλιο</option>
+                  </select>
+                </div>
+              </div>
+              
+              {sessionData.achievement && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Τίτλος Επιτεύγματος</label>
+                    <Input
+                      value={sessionData.achievement.title}
+                      onChange={(e) => setSessionData({
+                        ...sessionData, 
+                        achievement: {
+                          ...sessionData.achievement!,
+                          title: e.target.value
+                        }
+                      })}
+                      placeholder="π.χ. Πρώτα Βήματα"
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Περιγραφή Επιτεύγματος</label>
+                    <Textarea
+                      value={sessionData.achievement.description}
+                      onChange={(e) => setSessionData({
+                        ...sessionData, 
+                        achievement: {
+                          ...sessionData.achievement!,
+                          description: e.target.value
+                        }
+                      })}
+                      placeholder="Περιγράψτε το επίτευγμα..."
+                      className="min-h-[80px]"
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -512,75 +634,77 @@ export default function SessionEditPage() {
           </CardContent>
         </Card>
 
-        {/* Comments Section */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <MessageCircle className="w-5 h-5 text-blue-500 mr-2" />
-                Συνομιλία Συνεδρίας
-              </h3>
-              
+        {/* Comments Section - Only show for existing sessions */}
+        {!isNewSession && (
+          <Card>
+            <CardContent className="p-6">
               <div className="space-y-4">
-                {sessionData.feedback.map((comment, index) => (
-                  <div key={comment.id} className="flex space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            {comment.author === "parent" ? "Γονέας" : "Θεραπευτής"}
-                          </span>
-                          <span className="text-xs text-gray-500">{comment.timestamp}</span>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <MessageCircle className="w-5 h-5 text-blue-500 mr-2" />
+                  Συνομιλία Συνεδρίας
+                </h3>
+                
+                <div className="space-y-4">
+                  {sessionData.feedback.map((comment, index) => (
+                    <div key={comment.id} className="flex space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {comment.author === "parent" ? "Γονέας" : "Θεραπευτής"}
+                            </span>
+                            <span className="text-xs text-gray-500">{comment.timestamp}</span>
+                          </div>
+                          <p className="text-gray-700 text-sm leading-relaxed">{comment.message}</p>
                         </div>
-                        <p className="text-gray-700 text-sm leading-relaxed">{comment.message}</p>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {sessionData.feedback.length === 0 && (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 text-sm">Δεν υπάρχουν ακόμα σχόλια για αυτή τη συνεδρία</p>
-                  </div>
-                )}
-              </div>
+                  {sessionData.feedback.length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600 text-sm">Δεν υπάρχουν ακόμα σχόλια για αυτή τη συνεδρία</p>
+                    </div>
+                  )}
+                </div>
 
-              {/* Add Comment */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg focus-within:border-blue-300 transition-colors">
-                <div className="p-4">
-                  <Textarea
-                    placeholder="Προσθέστε σχόλιο ή ερώτηση για αυτή τη συνεδρία..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="border-0 p-0 resize-none focus-visible:ring-0 placeholder:text-gray-400 min-h-[60px] bg-transparent"
-                    rows={2}
-                  />
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
-                    <span className="text-xs text-gray-500">
-                      Το σχόλιό σας θα σταλεί στους γονείς
-                    </span>
-                    <Button 
-                      size="sm" 
-                      disabled={!newComment.trim()}
-                      className="bg-blue-500 hover:bg-blue-600"
-                      onClick={() => {
-                        // Add comment logic
-                        setNewComment("");
-                      }}
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Αποστολή
-                    </Button>
+                {/* Add Comment */}
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-lg focus-within:border-blue-300 transition-colors">
+                  <div className="p-4">
+                    <Textarea
+                      placeholder="Προσθέστε σχόλιο ή ερώτηση για αυτή τη συνεδρία..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="border-0 p-0 resize-none focus-visible:ring-0 placeholder:text-gray-400 min-h-[60px] bg-transparent"
+                      rows={2}
+                    />
+                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                      <span className="text-xs text-gray-500">
+                        Το σχόλιό σας θα σταλεί στους γονείς
+                      </span>
+                      <Button 
+                        size="sm" 
+                        disabled={!newComment.trim()}
+                        className="bg-blue-500 hover:bg-blue-600"
+                        onClick={() => {
+                          // Add comment logic
+                          setNewComment("");
+                        }}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Αποστολή
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
 
       </div>

@@ -89,7 +89,7 @@ const mockSession: SessionData = {
   duration: "45 λεπτά",
   status: "completed",
   isPaid: true,
-  therapist: "Δρ. Μαρία Παπαδοπούλου",
+  therapist: "Μαριλένα Νέστωρος",
   goals: [
     "Βελτίωση προφοράς φωνημάτων /ρ/ και /λ/",
     "Επέκταση λεξιλογίου με νέες λέξεις",
@@ -156,7 +156,7 @@ const mockSession: SessionData = {
       text: "Η Εμμα έδειξε εξαιρετική πρόοδο σήμερα. Κατάφερε να προφέρει σωστά το φώνημα /ρ/ σε 8 από 10 λέξεις.",
       date: "2024-01-15",
       type: "therapist",
-      author: "Δρ. Μαρία Παπαδοπούλου"
+      author: "Μαριλένα Νέστωρος"
     },
     {
       id: "feedback-2",

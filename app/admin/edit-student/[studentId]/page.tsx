@@ -46,7 +46,7 @@ const mockStudents: Student[] = [
     sessionsCompleted: 2,
     totalSessions: 12,
     nextSession: "2024-01-29",
-    therapist: "Δρ. Μαρία Κωνσταντίνου", 
+    therapist: "Μαριλένα Νέστωρος", 
     diagnosis: ["Δυσαρθρία", "Καθυστέρηση Ομιλίας"],
     parentContact: {
       name: "Αννα Παπαδοπούλου",
@@ -64,7 +64,7 @@ const mockStudents: Student[] = [
     sessionsCompleted: 1,
     totalSessions: 8,
     nextSession: "2024-02-01",
-    therapist: "Δρ. Μαρία Κωνσταντίνου",
+    therapist: "Μαριλένα Νέστωρος",
     diagnosis: ["Τραυλισμός"],
     parentContact: {
       name: "Πέτρος Γεωργίου",
