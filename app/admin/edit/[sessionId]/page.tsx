@@ -259,7 +259,7 @@ export default function SessionEditPage() {
 
               {/* PDF Files */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <FileText className="w-5 h-5 text-red-500 mr-2" />
                     Έγγραφα PDF
@@ -343,7 +343,7 @@ export default function SessionEditPage() {
 
               {/* Video Files */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <Video className="w-5 h-5 text-purple-500 mr-2" />
                     Βίντεο
@@ -427,7 +427,7 @@ export default function SessionEditPage() {
 
               {/* Image Files */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <ImageIcon className="w-5 h-5 text-blue-500 mr-2" />
                     Συλλογή Εικόνων
