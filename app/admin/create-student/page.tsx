@@ -25,6 +25,7 @@ interface SessionTemplate {
 interface StudentFormData {
   name: string;
   age: number;
+  birthday: string;
   sessionSetup: {
     totalWeeks: number;
     sessionsPerWeek: number;
@@ -50,6 +51,7 @@ export default function CreateStudentPage() {
   const [formData, setFormData] = useState<StudentFormData>({
     name: "",
     age: 5,
+    birthday: "",
     sessionSetup: {
       totalWeeks: 12,
       sessionsPerWeek: 1,
@@ -71,6 +73,10 @@ export default function CreateStudentPage() {
     setFormData(prev => ({ ...prev, age }));
   }, []);
 
+  const handleBirthdayChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, birthday: e.target.value }));
+  }, []);
+
   // Handle session setup changes
   const handleWeeksChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const weeks = parseInt(e.target.value) || 12;
@@ -80,7 +86,8 @@ export default function CreateStudentPage() {
     }));
   }, []);
 
-  const handleSessionsPerWeekChange = useCallback((sessions: number) => {
+  const handleSessionsPerWeekChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const sessions = parseInt(e.target.value);
     setFormData(prev => {
       const currentTemplates = prev.sessionSetup.sessionTemplates;
       let newTemplates: SessionTemplate[];
@@ -195,7 +202,7 @@ export default function CreateStudentPage() {
                 Βασικά Στοιχεία
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Όνομα Μαθητή *
@@ -218,6 +225,18 @@ export default function CreateStudentPage() {
                     max="18"
                     value={formData.age}
                     onChange={handleAgeChange}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ημερομηνία Γέννησης
+                  </label>
+                  <Input
+                    type="date"
+                    value={formData.birthday}
+                    onChange={handleBirthdayChange}
                     className="w-full"
                   />
                 </div>
@@ -258,22 +277,17 @@ export default function CreateStudentPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Συνεδρίες ανά Εβδομάδα *
                   </label>
-                  <div className="flex space-x-2">
-                    {[1, 2, 3].map((num) => (
-                      <Button
-                        key={num}
-                        variant={formData.sessionSetup.sessionsPerWeek === num ? "default" : "outline"}
-                        onClick={() => handleSessionsPerWeekChange(num)}
-                        className={`flex-1 ${
-                          formData.sessionSetup.sessionsPerWeek === num 
-                            ? 'bg-blue-600 hover:bg-blue-700' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        {num} {num === 1 ? 'φορά' : 'φορές'}
-                      </Button>
+                  <select
+                    value={formData.sessionSetup.sessionsPerWeek}
+                    onChange={handleSessionsPerWeekChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                      <option key={num} value={num}>
+                        {num} {num === 1 ? 'φορά' : 'φορές'} την εβδομάδα
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 </div>
               </div>
 
