@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -28,7 +28,7 @@ import {
   Settings,
   Edit,
   Trash2,
-  Send,
+
   Phone,
   Mail,
   X,
@@ -101,12 +101,12 @@ const mockJourneySessions: JourneySession[] = [
     sessionSummary: "Επιτυχής αρχική συνεδρία με εξαιρετική ανταπόκριση από το παιδί."
   },
   {
-    id: "2", 
-    sessionNumber: 2,
+    id: "2",
+    sessionNumber: 2, 
     title: "Εξάσκηση Ήχου Ρ - Βασικές Τεχνικές",
     description: "Εισαγωγή στις βασικές τεχνικές για την εκφορά του ήχου 'ρ'",
     date: "2024-01-22",
-    duration: "45 λεπτά", 
+    duration: "45 λεπτά",
     status: "completed",
     therapistNotes: "Σημαντική πρόοδος στην εκφορά του ήχου 'ρ'. Emma έδειξε μεγάλη προσπάθεια.",
     homework: ["Εξάσκηση με κάρτες", "Καθημερινή εξάσκηση"],
@@ -200,8 +200,8 @@ const mockConversations = [
     ]
   },
   {
-    studentId: "2", 
-    studentName: "Νίκος Γεωργίου",
+    studentId: "2",
+    studentName: "Νίκος Γεωργίου", 
     lastMessage: "Ευχαριστούμε για τις χθεσινές οδηγίες!",
     timestamp: "Χθες",
     unreadCount: 0,
@@ -220,8 +220,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("journey");
   const [journeySessions, setJourneySessions] = useState(mockJourneySessions);
   const [showStudentSelector, setShowStudentSelector] = useState(false);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
-  const [newMessage, setNewMessage] = useState("");
+
 
   // Filter students based on search query
   const filteredStudents = useMemo(() => {
@@ -354,9 +353,9 @@ export default function AdminPage() {
                 >
                   <X className="w-4 h-4" />
                 </button>
-              </div>
-              
-              {/* Search */}
+            </div>
+
+            {/* Search */}
               <div className="mt-4 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70 w-4 h-4" />
                 <input
@@ -391,7 +390,7 @@ export default function AdminPage() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">{student.name}</h3>
                       <p className="text-sm text-gray-600">{student.age} ετών • {student.sessionsCompleted}/{student.totalSessions} συνεδρίες</p>
-                    </div>
+                      </div>
                     {selectedStudent.id === student.id && (
                       <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
                     )}
@@ -407,149 +406,17 @@ export default function AdminPage() {
 
 
 
-  // Memoized event handlers for messages
-  const handleMessageChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewMessage(e.target.value);
-  }, []);
-
-  const handleSendMessage = useCallback(() => {
-    if (newMessage.trim() && selectedConversation) {
-      const selectedConversationData = mockConversations.find(c => c.studentId === selectedConversation);
-      if (selectedConversationData) {
-        console.log('Sending message to', selectedConversationData.studentName, ':', newMessage);
-        setNewMessage("");
-      }
-    }
-  }, [newMessage, selectedConversation]);
-
-  const handleSelectConversation = useCallback((studentId: string) => {
-    setSelectedConversation(studentId);
-  }, []);
-
-  const handleBackToConversationList = useCallback(() => {
-    setSelectedConversation(null);
-  }, []);
+  
 
   const handleStudentMessageClick = useCallback((studentId: string) => {
-    setActiveTab('messages');
-    setSelectedConversation(studentId);
-  }, []);
+    router.push('/admin/messages');
+  }, [router]);
 
-  // Mobile-Optimized Messages Tab with Conversation View
-  const MessagesTab = useMemo(() => {
-    const selectedConversationData = selectedConversation 
-      ? mockConversations.find(c => c.studentId === selectedConversation)
-      : null;
+  const handleMessagesClick = useCallback(() => {
+    router.push('/admin/messages');
+  }, [router]);
 
-    if (selectedConversation && selectedConversationData) {
-      // Individual Conversation View
-      return (
-        <div className="h-[calc(100vh-200px)] md:h-[600px] flex flex-col bg-white rounded-xl border border-gray-200">
-          {/* Conversation Header */}
-          <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-            <div className="flex items-center space-x-3">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="hover:bg-white/50 transition-colors p-2"
-                onClick={handleBackToConversationList}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                {selectedConversationData.studentName.charAt(0)}
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">{selectedConversationData.studentName}</h3>
-                <p className="text-sm text-gray-600">Γονέας - Ενεργός</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {selectedConversationData.messages.map((message) => (
-              <div key={message.id} className={`flex ${message.sender === 'therapist' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl p-3 ${
-                  message.sender === 'therapist' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-100 text-gray-900'
-                }`}>
-                  <p className="text-sm">{message.message}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.sender === 'therapist' ? 'text-blue-100' : 'text-gray-500'
-                  }`}>
-                    {message.timestamp}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Message Input */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex space-x-2">
-              <Textarea
-                value={newMessage}
-                onChange={handleMessageChange}
-                placeholder="Γράψτε το μήνυμά σας..."
-                className="resize-none flex-1 min-h-[40px] max-h-[120px]"
-                rows={1}
-              />
-              <Button 
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim()}
-                className="bg-blue-500 hover:bg-blue-600 px-4"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Conversations List View
-    return (
-      <div className="h-[calc(100vh-200px)] md:h-[600px] bg-white rounded-xl border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Μηνύματα</h2>
-          <p className="text-gray-600 text-sm mt-1">Επικοινωνία με γονείς και κηδεμόνες</p>
-        </div>
-        
-        <div className="overflow-y-auto h-[calc(100%-100px)]">
-          {mockConversations.map((conversation) => (
-            <div 
-              key={conversation.studentId}
-              onClick={() => handleSelectConversation(conversation.studentId)}
-              className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                    {conversation.studentName.charAt(0)}
-                  </div>
-                  {conversation.unreadCount > 0 && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {conversation.unreadCount}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900 truncate">{conversation.studentName}</h3>
-                    <span className="text-xs text-gray-500">{conversation.timestamp}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 truncate mt-1">{conversation.lastMessage}</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }, [selectedConversation, newMessage, students, handleSendMessage, handleMessageChange, handleSelectConversation, handleBackToConversationList]);
+  
 
   // Students Management Tab
   const StudentsTab = () => (
@@ -572,15 +439,15 @@ export default function AdminPage() {
           <Card key={student.id} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {student.name.charAt(0)}
                   </div>
-                  <div>
+                <div>
                     <h3 className="font-semibold text-gray-900">{student.name}</h3>
                     <p className="text-sm text-gray-600">{student.age} ετών</p>
-                  </div>
                 </div>
+              </div>
                 <Badge className={`${
                   student.status === 'active' ? 'bg-green-100 text-green-800' :
                   student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
@@ -589,18 +456,18 @@ export default function AdminPage() {
                   {student.status === 'active' ? 'Ενεργός' :
                    student.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
                 </Badge>
-              </div>
+            </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Πρόοδος:</span>
                   <span className="font-medium">{student.sessionsCompleted}/{student.totalSessions}</span>
-                </div>
-                
+            </div>
+
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Θεραπευτής:</span>
                   <span className="font-medium truncate ml-2">{student.therapist}</span>
-                </div>
+            </div>
 
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Επόμενη συνεδρία:</span>
@@ -669,16 +536,16 @@ export default function AdminPage() {
                     <p className="font-medium text-gray-900">{selectedStudent?.name}</p>
                     <p className="text-gray-600">{selectedStudent?.age} ετών</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+            <Button 
+              variant="ghost" 
+              size="sm" 
                     onClick={() => setShowStudentSelector(true)}
                     className="ml-2"
-                  >
+            >
                     <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </div>
+            </Button>
               </div>
+            </div>
             )}
 
             {/* Student Selector - Mobile (only visible in journey tab) */}
@@ -692,12 +559,12 @@ export default function AdminPage() {
                 <div className="flex items-center space-x-2">
                   <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
                     {selectedStudent?.name?.charAt(0)}
-                  </div>
+            </div>
                   <ChevronDown className="w-4 h-4" />
-                </div>
+          </div>
               </Button>
             )}
-          </div>
+        </div>
         </div>
       </div>
 
@@ -717,7 +584,7 @@ export default function AdminPage() {
               <BookOpen className="w-4 h-4 inline mr-2" />
               Πορεία Θεραπείας
             </button>
-            <button
+        <button
               onClick={() => setActiveTab("students")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === "students"
@@ -727,14 +594,10 @@ export default function AdminPage() {
             >
               <Users className="w-4 h-4 inline mr-2" />
               Μαθητές
-            </button>
+        </button>
             <button
-              onClick={() => setActiveTab("messages")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm relative ${
-                activeTab === "messages"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+              onClick={handleMessagesClick}
+              className="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm relative"
             >
               <MessageCircle className="w-4 h-4 inline mr-2" />
               Μηνύματα
@@ -750,7 +613,7 @@ export default function AdminPage() {
 
         {/* Tab Content */}
         <div className="space-y-6">
-          {activeTab === "journey" && (
+      {activeTab === "journey" && (
             <div className="space-y-6">
               {/* Journey Header */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -772,10 +635,10 @@ export default function AdminPage() {
                 {/* Sessions */}
                 <div className="space-y-6 sm:space-y-8">
                   {journeySessions.map((session, index) => (
-                    <motion.div
+        <motion.div
                       key={session.id}
                       initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
                       className="relative flex items-start"
                     >
@@ -788,7 +651,7 @@ export default function AdminPage() {
                         ) : (
                           <Circle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                         )}
-                      </div>
+              </div>
 
                       {/* Session Card */}
                       <div className="ml-6 sm:ml-8 flex-1">
@@ -801,7 +664,7 @@ export default function AdminPage() {
                                     Συνεδρία {session.sessionNumber}: {session.title}
                                   </h4>
                                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">{session.description}</p>
-                                </div>
+            </div>
                                 <div className="flex flex-col sm:items-end space-y-2">
                                   <Badge className={`${
                                     session.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -810,21 +673,21 @@ export default function AdminPage() {
                                     'bg-red-100 text-red-800'
                                   }`}>
                                     {getStatusText(session.status)}
-                                  </Badge>
+              </Badge>
                                   {session.isPaid && (
                                     <Badge className="bg-green-100 text-green-800">
                                       Πληρωμένη
                                     </Badge>
                                   )}
-                                </div>
-                              </div>
+            </div>
+        </div>
 
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm text-gray-600 space-y-2 sm:space-y-0">
                                 <div className="flex items-center space-x-4">
                                   <div className="flex items-center">
                                     <Calendar className="w-4 h-4 mr-1" />
                                     {new Date(session.date).toLocaleDateString('el-GR')}
-                                  </div>
+        </div>
                                   <div className="flex items-center">
                                     <Clock className="w-4 h-4 mr-1" />
                                     {session.duration}
@@ -845,20 +708,20 @@ export default function AdminPage() {
                                 <Edit className="w-4 h-4 mr-2" />
                                 Επεξεργασία Συνεδρίας
                               </Button>
-                            </div>
+              </div>
                           </CardContent>
                         </Card>
                       </div>
                     </motion.div>
-                  ))}
-                </div>
+          ))}
+        </div>
               </div>
             </div>
           )}
 
           {activeTab === "students" && <StudentsTab />}
           
-          {activeTab === "messages" && MessagesTab}
+
 
 
         </div>
