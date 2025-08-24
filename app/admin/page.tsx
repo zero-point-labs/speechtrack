@@ -73,21 +73,7 @@ interface Student {
   };
 }
 
-// Define the form data interface
-interface StudentFormData {
-  name?: string;
-  age?: number;
-  diagnosis?: string[];
-  therapist?: string;
-  parentContact?: {
-    name: string;
-    phone: string;
-    email: string;
-  };
-  photo?: string;
-  joinDate?: string;
-  status?: 'active' | 'inactive' | 'completed';
-}
+
 
 // Interface for File Data
 interface FileData {
@@ -234,12 +220,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("journey");
   const [journeySessions, setJourneySessions] = useState(mockJourneySessions);
   const [showStudentSelector, setShowStudentSelector] = useState(false);
-  const [showStudentEditor, setShowStudentEditor] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [studentFormData, setStudentFormData] = useState<StudentFormData>({});
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [firstStudentModalOpen, setFirstStudentModalOpen] = useState(false);
 
   // Filter students based on search query
   const filteredStudents = useMemo(() => {
@@ -323,59 +305,12 @@ export default function AdminPage() {
   }, [journeySessions, router]);
 
   const handleCreateNewStudent = useCallback(() => {
-    const newStudent: StudentFormData = {
-      name: "",
-      age: 5,
-      diagnosis: [],
-      therapist: "Δρ. Μαρία Κωνσταντίνου",
-      parentContact: {
-        name: "",
-        phone: "",
-        email: ""
-      },
-      photo: "/api/placeholder/100/100",
-      joinDate: new Date().toISOString().split('T')[0],
-      status: "active"
-    };
-    
-    setEditingStudent(null);
-    setStudentFormData(newStudent);
-    setShowStudentEditor(true);
-  }, []);
+    router.push('/admin/create-student');
+  }, [router]);
 
   const handleEditStudent = useCallback((student: Student) => {
-    setEditingStudent(student);
-    setStudentFormData({...student});
-    setShowStudentEditor(true);
-  }, []);
-
-  const handleSaveStudent = useCallback(() => {
-    if (editingStudent) {
-      // Update existing student
-      setStudents(prev => prev.map(s => s.id === editingStudent.id ? {...s, ...studentFormData} as Student : s));
-      if (selectedStudent.id === editingStudent.id) {
-        setSelectedStudent({...selectedStudent, ...studentFormData} as Student);
-      }
-    } else {
-      // Create new student
-      const newStudent: Student = {
-        id: Date.now().toString(),
-        ...studentFormData,
-        sessionsCompleted: 0,
-        totalSessions: 0
-      } as Student;
-      setStudents(prev => [...prev, newStudent]);
-    }
-    
-    setShowStudentEditor(false);
-    setEditingStudent(null);
-    setStudentFormData({});
-  }, [editingStudent, studentFormData, selectedStudent]);
-
-  const handleCancelStudentEdit = useCallback(() => {
-    setShowStudentEditor(false);
-    setEditingStudent(null);
-    setStudentFormData({});
+    // For now, just log - we can implement edit functionality later
+    console.log('Edit student:', student);
   }, []);
 
   const handleDeleteStudent = useCallback((studentId: string) => {
@@ -387,12 +322,7 @@ export default function AdminPage() {
     }
   }, [selectedStudent, students]);
 
-  // Reset modal animation flags when modals open
-  useEffect(() => {
-    if (showStudentEditor) {
-      setFirstStudentModalOpen(true);
-    }
-  }, [showStudentEditor]);
+
 
   // Mobile-First Student Selector Component
   const MobileStudentSelector = () => (
@@ -475,195 +405,7 @@ export default function AdminPage() {
     </AnimatePresence>
   );
 
-  // Student Editor Modal
-  const StudentEditor = useMemo(() => {
-    if (!showStudentEditor) return null;
 
-    return (
-    <AnimatePresence>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) handleCancelStudentEdit();
-          }}
-        >
-          <motion.div
-            initial={firstStudentModalOpen ? { scale: 0.95, opacity: 0 } : false}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            onAnimationComplete={() => {
-              if (firstStudentModalOpen) {
-                setFirstStudentModalOpen(false);
-              }
-            }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">
-                  {editingStudent ? 'Επεξεργασία Μαθητή' : 'Νέος Μαθητής'}
-                </h2>
-                <button
-                  onClick={handleCancelStudentEdit}
-                  className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Form Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-6">
-                {/* Basic Information */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Βασικά Στοιχεία</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Όνομα *
-                      </label>
-                      <Input
-                        value={studentFormData.name || ""}
-                        onChange={(e) => setStudentFormData({...studentFormData, name: e.target.value})}
-                        placeholder="Όνομα μαθητή"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Ηλικία *
-                      </label>
-                      <Input
-                        type="number"
-                        min="3"
-                        max="18"
-                        value={studentFormData.age || ""}
-                        onChange={(e) => setStudentFormData({...studentFormData, age: parseInt(e.target.value)})}
-                        placeholder="Ηλικία"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact Information */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Στοιχεία Επικοινωνίας</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Όνομα Γονέα/Κηδεμόνα *
-                      </label>
-                      <Input
-                        value={studentFormData.parentContact?.name || ""}
-                        onChange={(e) => setStudentFormData({
-                          ...studentFormData, 
-                          parentContact: {
-                            name: e.target.value,
-                            phone: studentFormData.parentContact?.phone || "",
-                            email: studentFormData.parentContact?.email || ""
-                          }
-                        })}
-                        placeholder="Όνομα γονέα"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Τηλέφωνο *
-                      </label>
-                      <Input
-                        value={studentFormData.parentContact?.phone || ""}
-                        onChange={(e) => setStudentFormData({
-                          ...studentFormData, 
-                          parentContact: {
-                            name: studentFormData.parentContact?.name || "",
-                            phone: e.target.value,
-                            email: studentFormData.parentContact?.email || ""
-                          }
-                        })}
-                        placeholder="+30 xxx xxx xxxx"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email *
-                      </label>
-                      <Input
-                        type="email"
-                        value={studentFormData.parentContact?.email || ""}
-                        onChange={(e) => setStudentFormData({
-                          ...studentFormData, 
-                          parentContact: {
-                            name: studentFormData.parentContact?.name || "",
-                            phone: studentFormData.parentContact?.phone || "",
-                            email: e.target.value
-                          }
-                        })}
-                        placeholder="email@example.com"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Medical Information */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Ιατρικά Στοιχεία</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Διάγνωση
-                      </label>
-                      <Textarea
-                        value={studentFormData.diagnosis?.join(', ') || ""}
-                        onChange={(e) => setStudentFormData({
-                          ...studentFormData, 
-                          diagnosis: e.target.value.split(',').map(d => d.trim()).filter(d => d)
-                        })}
-                        placeholder="π.χ. Δυσαρθρία, Καθυστέρηση Ομιλίας"
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Θεραπευτής
-                      </label>
-                      <Input
-                        value={studentFormData.therapist || ""}
-                        onChange={(e) => setStudentFormData({...studentFormData, therapist: e.target.value})}
-                        placeholder="Όνομα θεραπευτή"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-gray-200 p-6 flex justify-end space-x-3 flex-shrink-0">
-              <Button variant="outline" onClick={handleCancelStudentEdit}>
-                Ακύρωση
-              </Button>
-              <Button onClick={handleSaveStudent} className="bg-blue-600 hover:bg-blue-700">
-                <Save className="w-4 h-4 mr-2" />
-                Αποθήκευση
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
-    </AnimatePresence>
-  );
-  }, [
-    showStudentEditor,
-    firstStudentModalOpen,
-    editingStudent,
-    studentFormData,
-    handleCancelStudentEdit,
-    handleSaveStudent
-  ]);
 
   // Memoized event handlers for messages
   const handleMessageChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -906,8 +648,7 @@ export default function AdminPage() {
       {/* Mobile Student Selector Modal */}
       <MobileStudentSelector />
       
-      {/* Student Editor Modal */}
-      {StudentEditor}
+
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
