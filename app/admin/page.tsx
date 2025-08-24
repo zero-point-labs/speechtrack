@@ -28,13 +28,14 @@ import {
   Settings,
   Edit,
   Trash2,
-
   Phone,
   Mail,
   X,
   Save,
   ArrowLeft,
-  Users
+  Users,
+  PlayCircle,
+  Lock
 } from "lucide-react";
 
 // Interface for Journey Session
@@ -431,15 +432,15 @@ export default function AdminPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+                    <div>
           <h2 className="text-2xl font-bold text-gray-900">Διαχείριση Μαθητών</h2>
           <p className="text-gray-600">Διαχειριστείτε τους μαθητές σας και τα στοιχεία τους</p>
-        </div>
+                    </div>
         <Button onClick={handleCreateNewStudent} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="w-4 h-4 mr-2" />
           Νέος Μαθητής
         </Button>
-      </div>
+                    </div>
 
       {/* Students Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -455,12 +456,12 @@ export default function AdminPage() {
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {student.name.charAt(0)}
-                  </div>
+                    </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{student.name}</h3>
                     <p className="text-sm text-gray-600">{student.age} ετών</p>
+                    </div>
                   </div>
-                </div>
                 <Badge className={`${
                   student.status === 'active' ? 'bg-green-100 text-green-800' :
                   student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
@@ -469,12 +470,12 @@ export default function AdminPage() {
                   {student.status === 'active' ? 'Ενεργός' :
                    student.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
                 </Badge>
-              </div>
+                  </div>
 
               {/* Action buttons */}
               <div className="flex space-x-2 pt-4 border-t border-gray-200">
-                <Button
-                  size="sm"
+                      <Button
+                        size="sm"
                   variant="outline"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -484,10 +485,10 @@ export default function AdminPage() {
                 >
                   <Edit className="w-3 h-3 mr-1" />
                   Επεξεργασία
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleStudentMessageClick(student.id);
@@ -496,24 +497,13 @@ export default function AdminPage() {
                 >
                   <MessageCircle className="w-3 h-3 mr-1" />
                   Μηνύματα
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteStudent(student.id);
-                  }}
-                  className="text-red-600 hover:text-red-700 hover:border-red-300"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
+                            </Button>
+                          </div>
             </CardContent>
           </Card>
         ))}
-      </div>
-    </div>
+                        </div>
+                  </div>
   );
 
   return (
@@ -542,8 +532,8 @@ export default function AdminPage() {
               {/* Mobile Pull Indicator */}
               <div className="sm:hidden flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
-              </div>
-
+                  </div>
+                  
               {/* Modal Header - Compact for Mobile */}
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 sm:p-6 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -551,7 +541,7 @@ export default function AdminPage() {
                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-2xl">
                       {selectedStudentForModal.name.charAt(0)}
                     </div>
-                    <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1">
                       <h2 className="text-lg sm:text-2xl font-bold truncate">{selectedStudentForModal.name}</h2>
                       <p className="text-blue-100 text-sm">{selectedStudentForModal.age} ετών</p>
                       <Badge className={`mt-1 text-xs ${
@@ -562,16 +552,16 @@ export default function AdminPage() {
                         {selectedStudentForModal.status === 'active' ? 'Ενεργός' :
                          selectedStudentForModal.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
                       </Badge>
-                    </div>
-                  </div>
+                      </div>
+                          </div>
                   <button
                     onClick={handleCloseStudentModal}
                     className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors flex-shrink-0 ml-2"
                   >
                     <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
-                </div>
-              </div>
+                      </div>
+                    </div>
 
               {/* Modal Content - Mobile Optimized Scrolling */}
               <div className="flex-1 overflow-y-auto">
@@ -582,12 +572,12 @@ export default function AdminPage() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <User className="w-5 h-5 mr-2 text-blue-500" />
                       Βασικά Στοιχεία
-                    </h3>
+                      </h3>
                     <div className="space-y-3">
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-sm text-gray-600 mb-1">Θεραπευτής</p>
                         <p className="font-medium text-gray-900">{selectedStudentForModal.therapist}</p>
-                      </div>
+                    </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-sm text-gray-600 mb-1">Ημερομηνία εγγραφής</p>
                         <p className="font-medium text-gray-900">{new Date(selectedStudentForModal.joinDate).toLocaleDateString('el-GR')}</p>
@@ -604,10 +594,10 @@ export default function AdminPage() {
                             className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${(selectedStudentForModal.sessionsCompleted / selectedStudentForModal.totalSessions) * 100}%` }}
                           ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                              </div>
+                            </div>
+                            </div>
+                          </div>
 
 
 
@@ -621,12 +611,12 @@ export default function AdminPage() {
                       <div className="flex items-center space-x-3 mb-4">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                           <User className="w-5 h-5 text-blue-600" />
-                        </div>
+                  </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-gray-900 truncate">{selectedStudentForModal.parentContact.name}</p>
                           <p className="text-sm text-gray-600">Γονέας/Κηδεμόνας</p>
-                        </div>
-                      </div>
+                              </div>
+                            </div>
                       
                       <div className="space-y-3">
                         <div className="bg-white p-3 rounded-lg">
@@ -635,17 +625,17 @@ export default function AdminPage() {
                             <div className="min-w-0 flex-1">
                               <p className="text-xs text-gray-600">Τηλέφωνο</p>
                               <p className="font-medium text-gray-900 truncate">{selectedStudentForModal.parentContact.phone}</p>
-                            </div>
                           </div>
                         </div>
-                        
+                    </div>
+
                         <div className="bg-white p-3 rounded-lg">
                           <div className="flex items-center space-x-3">
                             <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs text-gray-600">Email</p>
                               <p className="font-medium text-gray-900 truncate">{selectedStudentForModal.parentContact.email}</p>
-                            </div>
+                      </div>
                           </div>
                         </div>
                       </div>
@@ -680,7 +670,7 @@ export default function AdminPage() {
                       <MessageCircle className="w-4 h-4 mr-2" />
                       Μηνύματα
                     </Button>
-                    <Button
+                  <Button
                       onClick={() => {
                         handleCloseStudentModal();
                         handleDeleteStudent(selectedStudentForModal.id);
@@ -690,10 +680,10 @@ export default function AdminPage() {
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Διαγραφή
-                    </Button>
-                  </div>
+                  </Button>
                 </div>
               </div>
+            </div>
             </motion.div>
           </motion.div>
         )}
@@ -707,19 +697,19 @@ export default function AdminPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-bold text-gray-900">Πάνελ Διαχειριστή</h1>
-                  </div>
-                  
+                </div>
+
             {/* Student Selector - Desktop (only visible in journey tab) */}
             {activeTab === "journey" && (
               <div className="hidden lg:flex items-center space-x-4">
                 <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     {selectedStudent?.name?.charAt(0)}
-                              </div>
+                    </div>
                   <div className="text-sm">
                     <p className="font-medium text-gray-900">{selectedStudent?.name}</p>
                     <p className="text-gray-600">{selectedStudent?.age} ετών</p>
-                            </div>
+                    </div>
                               <Button
               variant="ghost" 
                                 size="sm"
@@ -728,8 +718,8 @@ export default function AdminPage() {
                               >
                     <ChevronDown className="w-4 h-4" />
                               </Button>
-                          </div>
-                      </div>
+                    </div>
+                  </div>
                     )}
 
             {/* Student Selector - Mobile (only visible in journey tab) */}
@@ -745,10 +735,10 @@ export default function AdminPage() {
                     {selectedStudent?.name?.charAt(0)}
                           </div>
                   <ChevronDown className="w-4 h-4" />
-                        </div>
+                    </div>
               </Button>
             )}
-                      </div>
+                          </div>
                     </div>
                   </div>
 
@@ -793,115 +783,223 @@ export default function AdminPage() {
                   </button>
 
           </nav>
-            </div>
+                </div>
 
         {/* Tab Content */}
               <div className="space-y-6">
-      {activeTab === "journey" && (
-            <div className="space-y-6">
-              {/* Journey Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {activeTab === "journey" && (
+        <div className="space-y-8 pb-8 md:pb-0">
+          {/* Journey Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Πορεία Θεραπείας</h2>
-                  <p className="text-gray-600">Διαχειριστείτε τις συνεδρίες του μαθητή σας</p>
-                    </div>
-                <Button onClick={handleCreateNewSession} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Νέα Συνεδρία
-              </Button>
+              <h2 className="text-2xl font-bold text-gray-900">Πορεία Θεραπείας</h2>
+              <p className="text-gray-600">Διαχειριστείτε τις συνεδρίες του μαθητή σας</p>
+                </div>
+            <Button onClick={handleCreateNewSession} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Νέα Συνεδρία
+            </Button>
+                      </div>
+                      
+          {/* Enhanced Progress Overview */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+      >
+            <Card className="relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-blue-50 via-purple-50 to-orange-50">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-orange-500/10"></div>
+              <CardContent className="relative pt-8 pb-8">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white shadow-lg mb-4">
+                    <div className="text-3xl">🎯</div>
+              </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Το Λογοθεραπευτικό Ταξίδι του {selectedStudent?.name || 'Μαθητή'}</h3>
+                  <p className="text-gray-600">Διαχείριση και παρακολούθηση προόδου</p>
             </div>
             
-              {/* Journey Timeline */}
-      <div className="relative">
-                {/* Timeline Line */}
-                <div className="absolute left-8 sm:left-12 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-        
-                {/* Sessions */}
-                <div className="space-y-6 sm:space-y-8">
+                <div className="flex items-center justify-center mb-6">
+                  <div className="relative w-32 h-32">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="#E5E7EB"
+                        strokeWidth="3"
+                      />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="url(#progressGradient)"
+                        strokeWidth="3"
+                        strokeDasharray={`${(journeySessions.filter(s => s.status === 'completed').length / journeySessions.length) * 100}, 100`}
+                        className="transition-all duration-1000 ease-out"
+                      />
+                      <defs>
+                        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#3B82F6" />
+                          <stop offset="100%" stopColor="#F97316" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {Math.round((journeySessions.filter(s => s.status === 'completed').length / journeySessions.length) * 100)}%
+                </div>
+                        <div className="text-sm text-gray-600">Ολοκληρωμένο</div>
+              </div>
+                </div>
+              </div>
+                </div>
+
+                <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-4 text-center">
+                  <div className="flex justify-between items-center md:flex-col md:justify-center">
+                    <div className="text-sm text-gray-600 md:order-2 md:text-sm">Ολοκληρωμένες</div>
+                    <div className="text-2xl md:text-2xl font-bold text-blue-600 md:order-1">{journeySessions.filter(s => s.status === 'completed').length}</div>
+                  </div>
+                  <div className="flex justify-between items-center md:flex-col md:justify-center">
+                    <div className="text-sm text-gray-600 md:order-2 md:text-sm">Υπολοίπονται</div>
+                    <div className="text-2xl md:text-2xl font-bold text-orange-600 md:order-1">{journeySessions.length - journeySessions.filter(s => s.status === 'completed').length}</div>
+                  </div>
+                  <div className="flex justify-between items-center md:flex-col md:justify-center">
+                    <div className="text-sm text-gray-600 md:order-2 md:text-sm">Συνολικές</div>
+                    <div className="text-2xl md:text-2xl font-bold text-purple-600 md:order-1">{journeySessions.length}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+          {/* Timeline */}
+          <div className="relative px-2 md:px-0">
+            {/* Timeline Line */}
+            <div className="absolute left-5 md:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500 opacity-30"></div>
+            
+            {/* Progress Line */}
+            <motion.div 
+              className="absolute left-5 md:left-8 top-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"
+              initial={{ height: 0 }}
+              animate={{ 
+                height: `${(journeySessions.filter(s => s.status === 'completed').length / journeySessions.length) * 100}%` 
+              }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+            />
+
+            {/* Session Cards */}
+            <div className="space-y-6 md:space-y-8 pb-32 md:pb-8">
           {journeySessions.map((session, index) => (
             <motion.div
               key={session.id}
-                      initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-                      className="relative flex items-start"
+                initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+              className="relative"
+            >
+                {/* Timeline Node */}
+              <div className="absolute left-0 flex items-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
+                    className={`
+                      w-10 h-10 md:w-16 md:h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-[5] md:z-10
+                  ${session.status === "completed" 
+                    ? "bg-gradient-to-br from-green-400 to-green-600" 
+                    : session.status === "available"
+                    ? "bg-gradient-to-br from-blue-400 to-blue-600"
+                    : "bg-gradient-to-br from-gray-300 to-gray-500"
+                  }
+                    `}
+                  >
+                    {session.status === "completed" ? (
+                      <CheckCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
+                    ) : session.status === "available" ? (
+                      <PlayCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
+                    ) : (
+                      <Lock className="w-4 h-4 md:w-6 md:h-6 text-white" />
+                    )}
+                  </motion.div>
+              </div>
+
+                {/* Session Card */}
+                <div className="ml-16 md:ml-24">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Card 
+                      className={`
+                        overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer group
+                        ${session.status === "completed" 
+                          ? "bg-gradient-to-br from-white to-green-50/30 border-green-200/50 hover:border-green-300" 
+                          : session.status === "available"
+                          ? "bg-gradient-to-br from-white to-blue-50/30 border-blue-200/50 hover:border-blue-300"
+                          : "bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200/50 hover:border-gray-300"
+                        }
+                      `}
+                            onClick={(e) => {
+                        e.preventDefault();
+                              e.stopPropagation();
+                              handleEditSession(session.id);
+                            }}
                     >
-                      {/* Timeline Node */}
-                      <div className={`${getStatusColor(session.status)} w-6 h-6 sm:w-8 sm:h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-10`}>
-                        {session.status === 'completed' ? (
-                          <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                        ) : session.status === 'available' ? (
-                          <Circle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                        ) : (
-                          <Circle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                )}
-              </div>
-
-                      {/* Session Card */}
-                      <div className="ml-6 sm:ml-8 flex-1">
-                <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all cursor-pointer">
-                  <CardContent className="p-4 sm:p-6">
-                    <div onClick={() => handleEditSession(session.id)}>
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 mb-4">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-base sm:text-lg font-semibold text-gray-900">
-                                    Συνεδρία {session.sessionNumber}: {session.title}
-                          </h4>
-                                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">{session.description}</p>
-                        </div>
-                                <div className="flex flex-col sm:items-end space-y-2">
-                                  <Badge className={`${
-                                    session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                    session.status === 'available' ? 'bg-blue-100 text-blue-800' :
-                                    session.status === 'locked' ? 'bg-gray-100 text-gray-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                    {getStatusText(session.status)}
-                          </Badge>
-                          {session.isPaid && (
-                                    <Badge className="bg-green-100 text-green-800">
-                              Πληρωμένη
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm text-gray-600 space-y-2 sm:space-y-0">
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center">
-                                    <Calendar className="w-4 h-4 mr-1" />
-                          {new Date(session.date).toLocaleDateString('el-GR')}
-        </div>
-                                  <div className="flex items-center">
-                                    <Clock className="w-4 h-4 mr-1" />
-                          {session.duration}
-                      </div>
-                              </div>
-                            </div>
-                            </div>
-
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-            <Button
-                  variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditSession(session.id);
-                                }}
-                                className="hover:bg-blue-50 hover:border-blue-300 w-full sm:w-auto min-h-[36px]"
+                      <div className="px-4 md:px-6 py-4 md:py-5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            {/* Main session info */}
+                            <div className="flex items-center flex-wrap gap-2 mb-2">
+                              <h4 className="font-semibold text-gray-900 text-base md:text-lg group-hover:text-blue-700 transition-colors">
+                                Session {session.sessionNumber}
+                              </h4>
+                              <Badge 
+                                variant={session.isPaid ? "default" : "destructive"}
+                                className={`text-xs ${session.isPaid ? "bg-green-100 text-green-800 border-green-300" : ""}`}
                               >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Επεξεργασία Συνεδρίας
-                </Button>
+                                {session.isPaid ? "Πληρωμένη" : "Απλήρωτη"}
+                              </Badge>
+                      </div>
+
+                            <h5 className="font-medium text-gray-700 text-sm md:text-base mb-2 group-hover:text-gray-900 transition-colors line-clamp-1">
+                              {session.title}
+                            </h5>
+                            
+                            {/* Essential metadata */}
+                            <div className="flex items-center space-x-3 text-xs md:text-sm text-gray-600">
+                        <span className="flex items-center">
+                                <Calendar className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                          {new Date(session.date).toLocaleDateString('el-GR')}
+                        </span>
+                        <span className="flex items-center">
+                                <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                          {session.duration}
+                        </span>
+                      </div>
+
+                            {session.status === "locked" && (
+                              <div className="text-center py-3 mt-2">
+                                <Lock className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                                <p className="text-xs text-gray-500">Ολοκληρώστε τις προηγούμενες συνεδρίες για ξεκλείδωμα</p>
+                        </div>
+                      )}
+                        </div>
+
+                          {/* Hover indicator */}
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
+                            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
+                          </div>
+                        </div>
+                      </div>
+                </Card>
+            </motion.div>
+                      </div>
+                    </motion.div>
+            ))}
+                </div>
               </div>
-                          </CardContent>
-                        </Card>
-            </div>
-          </motion.div>
-        ))}
-      </div>
         </div>
-    </div>
-          )}
+      )}
 
           {activeTab === "students" && <StudentsTab />}
           

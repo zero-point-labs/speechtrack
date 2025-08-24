@@ -1081,7 +1081,7 @@ export default function Dashboard() {
                     e.preventDefault();
                     e.stopPropagation();
                     if (session.status !== "locked") {
-                      setSelectedSession(session as unknown as SessionData);
+                      router.push(`/dashboard/session/${session.id}`);
                     }
                   }}
                 >
@@ -1153,7 +1153,7 @@ export default function Dashboard() {
   );
 
   const ProfileTab = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-32 md:pb-8">
       {/* Child Profile Card */}
       <Card>
         <CardHeader>
