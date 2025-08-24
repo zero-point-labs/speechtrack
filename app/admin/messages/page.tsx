@@ -90,9 +90,9 @@ function MessagesPageContent() {
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div className="h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center space-x-3">
             {selectedConversation && selectedConversationData ? (
@@ -135,12 +135,12 @@ function MessagesPageContent() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-4 overflow-x-hidden">
+      {/* Main Content - Full Height */}
+      <div className="flex-1 flex flex-col">
         
         {selectedConversation && selectedConversationData ? (
-          // Individual Conversation View
-          <div className="h-[calc(100vh-120px)] flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
+          // Individual Conversation View - Full Screen
+          <div className="flex-1 flex flex-col bg-white">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {selectedConversationData.messages.map((message) => (
@@ -162,7 +162,7 @@ function MessagesPageContent() {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
               <div className="flex space-x-2">
                 <Textarea
                   value={newMessage}
@@ -183,8 +183,8 @@ function MessagesPageContent() {
           </div>
         ) : (
           // Conversations List View
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="p-6 border-b border-gray-200">
+          <div className="flex-1 bg-white m-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <MessageCircle className="w-6 h-6 text-blue-500" />
                 <div>
@@ -194,7 +194,7 @@ function MessagesPageContent() {
               </div>
             </div>
             
-            <div className="divide-y divide-gray-100">
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
               {mockConversations.map((conversation) => (
                 <div 
                   key={conversation.studentId}
@@ -226,9 +226,6 @@ function MessagesPageContent() {
             </div>
           </div>
         )}
-
-        {/* Bottom spacing for mobile */}
-        <div className="h-8"></div>
       </div>
     </div>
   );

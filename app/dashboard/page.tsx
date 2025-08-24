@@ -34,7 +34,10 @@ import {
   Award,
   X,
   Maximize2,
-  ChevronDown
+  ChevronDown,
+  Phone,
+  Mail,
+  MapPin
 } from "lucide-react";
 
 // TypeScript interfaces
@@ -113,7 +116,16 @@ const mockChild = {
   therapyGoals: ["Βελτίωση άρθρωσης των 'Ρ' ήχων", "Ενίσχυση ανάπτυξης λεξιλογίου", "Οικοδόμηση αυτοπεποίθησης στην επικοινωνία"],
   totalSessions: 12,
   completedSessions: 4,
-  nextSession: "2024-01-15"
+  nextSession: "2024-01-15",
+  status: "active",
+  joinDate: "2024-01-15",
+  therapist: "Δρ. Μαρία Κωνσταντίνου",
+  diagnosis: ["Δυσαρθρία", "Καθυστέρηση Ομιλίας"],
+  parentContact: {
+    name: "Αννα Παπαδοπούλου",
+    phone: "+30 697 123 4567",
+    email: "anna.papa@email.com"
+  }
 };
 
 const mockSessions = [
@@ -1154,36 +1166,90 @@ export default function Dashboard() {
             </Avatar>
             <div>
               <h2 className="text-xl font-bold text-gray-900">{mockChild.name}</h2>
-              <p className="text-gray-600">Ηλικία {mockChild.age}</p>
+              <p className="text-gray-600">Ηλικία {mockChild.age} ετών</p>
+              <Badge className={`mt-1 ${
+                mockChild.status === 'active' ? 'bg-green-100 text-green-800' :
+                mockChild.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                'bg-blue-100 text-blue-800'
+              }`}>
+                {mockChild.status === 'active' ? 'Ενεργός' :
+                 mockChild.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
+              </Badge>
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-medium text-gray-900 mb-2">Στόχοι Θεραπείας</h3>
-            <ul className="space-y-1">
-              {mockChild.therapyGoals.map((goal, index) => (
-                <li key={index} className="flex items-start space-x-2 text-sm text-gray-700">
-                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>{goal}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          <div>
-            <h3 className="font-medium text-gray-900 mb-2">Περίληψη Προόδου</h3>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-blue-900">Συνεδρίες που Ολοκληρώθηκαν</span>
-                <span className="text-sm font-bold text-blue-900">
-                  {mockChild.completedSessions}/{mockChild.totalSessions}
-                </span>
+        <CardContent className="space-y-6">
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-medium text-gray-900 mb-3">Βασικά Στοιχεία</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Θεραπευτής:</span>
+                  <span className="font-medium">{mockChild.therapist}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Ημερομηνία εγγραφής:</span>
+                  <span className="font-medium">{new Date(mockChild.joinDate).toLocaleDateString('el-GR')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Επόμενη συνεδρία:</span>
+                  <span className="font-medium">{new Date(mockChild.nextSession).toLocaleDateString('el-GR')}</span>
+                </div>
               </div>
-              <Progress 
-                value={(mockChild.completedSessions / mockChild.totalSessions) * 100} 
-                className="h-2"
-              />
+            </div>
+
+            <div>
+              <h3 className="font-medium text-gray-900 mb-3">Περίληψη Προόδου</h3>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-900">Συνεδρίες που Ολοκληρώθηκαν</span>
+                  <span className="text-sm font-bold text-blue-900">
+                    {mockChild.completedSessions}/{mockChild.totalSessions}
+                  </span>
+                </div>
+                <Progress 
+                  value={(mockChild.completedSessions / mockChild.totalSessions) * 100} 
+                  className="h-2"
+                />
+              </div>
+            </div>
+          </div>
+
+
+
+          {/* Parent/Guardian Contact */}
+          <div>
+            <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+              <User className="w-4 h-4 mr-2 text-blue-500" />
+              Στοιχεία Γονέα/Κηδεμόνα
+            </h3>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              <div className="flex items-center space-x-3">
+                <User className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{mockChild.parentContact.name}</p>
+                  <p className="text-xs text-gray-600">Γονέας/Κηδεμόνας</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center space-x-3">
+                  <Phone className="w-4 h-4 text-gray-500" />
+                  <div>
+                    <p className="text-xs text-gray-600">Τηλέφωνο</p>
+                    <p className="text-sm font-medium text-gray-900">{mockChild.parentContact.phone}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Mail className="w-4 h-4 text-gray-500" />
+                  <div>
+                    <p className="text-xs text-gray-600">Email</p>
+                    <p className="text-sm font-medium text-gray-900">{mockChild.parentContact.email}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

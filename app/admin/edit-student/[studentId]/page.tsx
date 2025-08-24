@@ -11,9 +11,7 @@ import {
   Save,
   User,
   Phone,
-  Calendar,
-  MapPin,
-  BookOpen
+  Calendar
 } from "lucide-react";
 
 // Interface for Student
@@ -136,41 +134,7 @@ export default function EditStudentPage() {
     } : null);
   }, [studentData]);
 
-  const handleDiagnosisChange = useCallback((index: number, value: string) => {
-    if (!studentData) return;
-    
-    setStudentData(prev => {
-      if (!prev) return null;
-      const newDiagnosis = [...prev.diagnosis];
-      newDiagnosis[index] = value;
-      return {
-        ...prev,
-        diagnosis: newDiagnosis
-      };
-    });
-  }, [studentData]);
 
-  const addDiagnosis = useCallback(() => {
-    if (!studentData) return;
-    
-    setStudentData(prev => prev ? {
-      ...prev,
-      diagnosis: [...prev.diagnosis, ""]
-    } : null);
-  }, [studentData]);
-
-  const removeDiagnosis = useCallback((index: number) => {
-    if (!studentData) return;
-    
-    setStudentData(prev => {
-      if (!prev) return null;
-      const newDiagnosis = prev.diagnosis.filter((_, i) => i !== index);
-      return {
-        ...prev,
-        diagnosis: newDiagnosis
-      };
-    });
-  }, [studentData]);
 
   if (isLoading) {
     return (
@@ -250,7 +214,7 @@ export default function EditStudentPage() {
               <h2 className="text-xl font-semibold text-gray-900">Βασικά Στοιχεία</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Όνομα Μαθητή *
@@ -276,18 +240,7 @@ export default function EditStudentPage() {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Θεραπευτής
-                </label>
-                <Input
-                  value={studentData.therapist}
-                  onChange={(e) => handleStudentChange('therapist', e.target.value)}
-                  className="w-full"
-                  placeholder="Όνομα θεραπευτή"
-                />
-              </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Κατάσταση
@@ -306,96 +259,9 @@ export default function EditStudentPage() {
           </CardContent>
         </Card>
 
-        {/* Session Information */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2 mb-6">
-              <BookOpen className="w-5 h-5 text-blue-500" />
-              <h2 className="text-xl font-semibold text-gray-900">Πληροφορίες Συνεδριών</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ολοκληρωμένες Συνεδρίες
-                </label>
-                <Input
-                  type="number"
-                  value={studentData.sessionsCompleted}
-                  onChange={(e) => handleStudentChange('sessionsCompleted', parseInt(e.target.value) || 0)}
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Συνολικές Συνεδρίες
-                </label>
-                <Input
-                  type="number"
-                  value={studentData.totalSessions}
-                  onChange={(e) => handleStudentChange('totalSessions', parseInt(e.target.value) || 0)}
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Επόμενη Συνεδρία
-                </label>
-                <Input
-                  type="date"
-                  value={studentData.nextSession || ""}
-                  onChange={(e) => handleStudentChange('nextSession', e.target.value)}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Diagnosis */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-5 h-5 text-blue-500" />
-                <h2 className="text-xl font-semibold text-gray-900">Διάγνωση</h2>
-              </div>
-              <Button 
-                onClick={addDiagnosis}
-                size="sm"
-                variant="outline"
-                className="text-blue-600 border-blue-600 hover:bg-blue-50"
-              >
-                Προσθήκη Διάγνωσης
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              {studentData.diagnosis.map((diagnosis, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <Input
-                    value={diagnosis}
-                    onChange={(e) => handleDiagnosisChange(index, e.target.value)}
-                    className="flex-1"
-                    placeholder="Εισάγετε διάγνωση"
-                  />
-                  {studentData.diagnosis.length > 1 && (
-                    <Button
-                      onClick={() => removeDiagnosis(index)}
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 border-red-600 hover:bg-red-50"
-                    >
-                      Αφαίρεση
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+
+
 
         {/* Parent Contact */}
         <Card>

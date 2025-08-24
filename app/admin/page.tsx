@@ -220,6 +220,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("journey");
   const [journeySessions, setJourneySessions] = useState(mockJourneySessions);
   const [showStudentSelector, setShowStudentSelector] = useState(false);
+  const [selectedStudentForModal, setSelectedStudentForModal] = useState<Student | null>(null);
 
 
   // Filter students based on search query
@@ -415,9 +416,17 @@ export default function AdminPage() {
     router.push('/admin/messages');
   }, [router]);
 
+  const handleStudentCardClick = useCallback((student: Student) => {
+    setSelectedStudentForModal(student);
+  }, []);
+
+  const handleCloseStudentModal = useCallback(() => {
+    setSelectedStudentForModal(null);
+  }, []);
+
   
 
-  // Students Management Tab
+      // Students Management Tab
   const StudentsTab = () => (
     <div className="space-y-6">
       {/* Header */}
@@ -435,18 +444,23 @@ export default function AdminPage() {
       {/* Students Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {students.map((student) => (
-          <Card key={student.id} className="hover:shadow-lg transition-shadow">
+          <Card 
+            key={student.id} 
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => handleStudentCardClick(student)}
+          >
             <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
+              {/* Student card header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {student.name.charAt(0)}
                   </div>
-                <div>
+                  <div>
                     <h3 className="font-semibold text-gray-900">{student.name}</h3>
                     <p className="text-sm text-gray-600">{student.age} ετών</p>
+                  </div>
                 </div>
-              </div>
                 <Badge className={`${
                   student.status === 'active' ? 'bg-green-100 text-green-800' :
                   student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
@@ -455,30 +469,17 @@ export default function AdminPage() {
                   {student.status === 'active' ? 'Ενεργός' :
                    student.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
                 </Badge>
-            </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Πρόοδος:</span>
-                  <span className="font-medium">{student.sessionsCompleted}/{student.totalSessions}</span>
-            </div>
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Θεραπευτής:</span>
-                  <span className="font-medium truncate ml-2">{student.therapist}</span>
-            </div>
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Επόμενη συνεδρία:</span>
-                  <span className="font-medium">{student.nextSession || 'Μη προγραμματισμένη'}</span>
-                </div>
               </div>
 
-              <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200">
+              {/* Action buttons */}
+              <div className="flex space-x-2 pt-4 border-t border-gray-200">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleEditStudent(student)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditStudent(student);
+                  }}
                   className="flex-1"
                 >
                   <Edit className="w-3 h-3 mr-1" />
@@ -487,7 +488,10 @@ export default function AdminPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleStudentMessageClick(student.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStudentMessageClick(student.id);
+                  }}
                   className="flex-1"
                 >
                   <MessageCircle className="w-3 h-3 mr-1" />
@@ -496,7 +500,10 @@ export default function AdminPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleDeleteStudent(student.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteStudent(student.id);
+                  }}
                   className="text-red-600 hover:text-red-700 hover:border-red-300"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -514,6 +521,164 @@ export default function AdminPage() {
       {/* Mobile Student Selector Modal */}
       <MobileStudentSelector />
       
+      {/* Student Details Modal */}
+      <AnimatePresence>
+        {selectedStudentForModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={handleCloseStudentModal}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white font-bold text-2xl">
+                      {selectedStudentForModal.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">{selectedStudentForModal.name}</h2>
+                      <p className="text-blue-100">{selectedStudentForModal.age} ετών</p>
+                      <Badge className={`mt-2 ${
+                        selectedStudentForModal.status === 'active' ? 'bg-green-500 text-white' :
+                        selectedStudentForModal.status === 'inactive' ? 'bg-gray-500 text-white' :
+                        'bg-blue-500 text-white'
+                      }`}>
+                        {selectedStudentForModal.status === 'active' ? 'Ενεργός' :
+                         selectedStudentForModal.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseStudentModal}
+                    className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                <div className="space-y-6">
+                  
+                  {/* Basic Information */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <User className="w-5 h-5 mr-2 text-blue-500" />
+                      Βασικά Στοιχεία
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Θεραπευτής</p>
+                        <p className="font-medium">{selectedStudentForModal.therapist}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Ημερομηνία εγγραφής</p>
+                        <p className="font-medium">{new Date(selectedStudentForModal.joinDate).toLocaleDateString('el-GR')}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Επόμενη συνεδρία</p>
+                        <p className="font-medium">{selectedStudentForModal.nextSession ? new Date(selectedStudentForModal.nextSession).toLocaleDateString('el-GR') : 'Μη προγραμματισμένη'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Πρόοδος συνεδριών</p>
+                        <p className="font-medium">{selectedStudentForModal.sessionsCompleted}/{selectedStudentForModal.totalSessions}</p>
+                      </div>
+                    </div>
+                  </div>
+
+
+
+                  {/* Parent Contact Information */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <User className="w-5 h-5 mr-2 text-blue-500" />
+                      Στοιχεία Γονέα/Κηδεμόνα
+                    </h3>
+                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{selectedStudentForModal.parentContact.name}</p>
+                          <p className="text-sm text-gray-600">Γονέας/Κηδεμόνας</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center space-x-3">
+                          <Phone className="w-5 h-5 text-green-600" />
+                          <div>
+                            <p className="text-xs text-gray-600">Τηλέφωνο</p>
+                            <p className="font-medium text-gray-900">{selectedStudentForModal.parentContact.phone}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-3">
+                          <Mail className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <p className="text-xs text-gray-600">Email</p>
+                            <p className="font-medium text-gray-900">{selectedStudentForModal.parentContact.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex space-x-3 pt-4 border-t border-gray-200">
+                    <Button
+                      onClick={() => {
+                        handleCloseStudentModal();
+                        handleEditStudent(selectedStudentForModal);
+                      }}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Επεξεργασία
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        handleCloseStudentModal();
+                        handleStudentMessageClick(selectedStudentForModal.id);
+                      }}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Μηνύματα
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        handleCloseStudentModal();
+                        handleDeleteStudent(selectedStudentForModal.id);
+                      }}
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Διαγραφή
+                    </Button>
+                  </div>
+
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
 
 
       {/* Header */}
@@ -522,50 +687,50 @@ export default function AdminPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-bold text-gray-900">Πάνελ Διαχειριστή</h1>
-            </div>
-            
+                  </div>
+                  
             {/* Student Selector - Desktop (only visible in journey tab) */}
             {activeTab === "journey" && (
               <div className="hidden lg:flex items-center space-x-4">
                 <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     {selectedStudent?.name?.charAt(0)}
-                  </div>
+                              </div>
                   <div className="text-sm">
                     <p className="font-medium text-gray-900">{selectedStudent?.name}</p>
                     <p className="text-gray-600">{selectedStudent?.age} ετών</p>
-                  </div>
-            <Button 
+                            </div>
+                              <Button
               variant="ghost" 
-              size="sm" 
+                                size="sm"
                     onClick={() => setShowStudentSelector(true)}
                     className="ml-2"
-            >
+                              >
                     <ChevronDown className="w-4 h-4" />
-            </Button>
-              </div>
-            </div>
-            )}
+                              </Button>
+                          </div>
+                      </div>
+                    )}
 
             {/* Student Selector - Mobile (only visible in journey tab) */}
             {activeTab === "journey" && (
-              <Button
+                            <Button
                 variant="ghost"
-                size="sm"
+                              size="sm"
                 onClick={() => setShowStudentSelector(true)}
                 className="lg:hidden"
               >
                 <div className="flex items-center space-x-2">
                   <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
                     {selectedStudent?.name?.charAt(0)}
-            </div>
+                          </div>
                   <ChevronDown className="w-4 h-4" />
-          </div>
+                        </div>
               </Button>
             )}
-        </div>
-        </div>
-      </div>
+                      </div>
+                    </div>
+                  </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -594,7 +759,7 @@ export default function AdminPage() {
               <Users className="w-4 h-4 inline mr-2" />
               Μαθητές
         </button>
-            <button
+                  <button
               onClick={handleMessagesClick}
               className="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm relative"
             >
@@ -605,13 +770,13 @@ export default function AdminPage() {
                   {mockConversations.reduce((acc, conv) => acc + conv.unreadCount, 0)}
                 </span>
               )}
-            </button>
+                  </button>
 
           </nav>
-        </div>
+            </div>
 
         {/* Tab Content */}
-        <div className="space-y-6">
+              <div className="space-y-6">
       {activeTab === "journey" && (
             <div className="space-y-6">
               {/* Journey Header */}
@@ -619,26 +784,26 @@ export default function AdminPage() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Πορεία Θεραπείας</h2>
                   <p className="text-gray-600">Διαχειριστείτε τις συνεδρίες του μαθητή σας</p>
-                </div>
+                    </div>
                 <Button onClick={handleCreateNewSession} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Νέα Συνεδρία
-                </Button>
-              </div>
-
+                <Plus className="w-4 h-4 mr-2" />
+                Νέα Συνεδρία
+              </Button>
+            </div>
+            
               {/* Journey Timeline */}
-              <div className="relative">
+      <div className="relative">
                 {/* Timeline Line */}
                 <div className="absolute left-8 sm:left-12 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-                
+        
                 {/* Sessions */}
                 <div className="space-y-6 sm:space-y-8">
-                  {journeySessions.map((session, index) => (
-        <motion.div
-                      key={session.id}
+          {journeySessions.map((session, index) => (
+            <motion.div
+              key={session.id}
                       initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.1 }}
                       className="relative flex items-start"
                     >
                       {/* Timeline Node */}
@@ -649,21 +814,21 @@ export default function AdminPage() {
                           <Circle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                         ) : (
                           <Circle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                        )}
+                )}
               </div>
 
                       {/* Session Card */}
                       <div className="ml-6 sm:ml-8 flex-1">
-                        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all cursor-pointer">
-                          <CardContent className="p-4 sm:p-6">
-                            <div onClick={() => handleEditSession(session.id)}>
-                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 mb-4">
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all cursor-pointer">
+                  <CardContent className="p-4 sm:p-6">
+                    <div onClick={() => handleEditSession(session.id)}>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 mb-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-base sm:text-lg font-semibold text-gray-900">
                                     Συνεδρία {session.sessionNumber}: {session.title}
-                                  </h4>
+                          </h4>
                                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">{session.description}</p>
-            </div>
+                        </div>
                                 <div className="flex flex-col sm:items-end space-y-2">
                                   <Badge className={`${
                                     session.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -672,32 +837,32 @@ export default function AdminPage() {
                                     'bg-red-100 text-red-800'
                                   }`}>
                                     {getStatusText(session.status)}
-              </Badge>
-                                  {session.isPaid && (
+                          </Badge>
+                          {session.isPaid && (
                                     <Badge className="bg-green-100 text-green-800">
-                                      Πληρωμένη
-                                    </Badge>
-                                  )}
-            </div>
-        </div>
+                              Πληρωμένη
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
 
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm text-gray-600 space-y-2 sm:space-y-0">
                                 <div className="flex items-center space-x-4">
                                   <div className="flex items-center">
                                     <Calendar className="w-4 h-4 mr-1" />
-                                    {new Date(session.date).toLocaleDateString('el-GR')}
+                          {new Date(session.date).toLocaleDateString('el-GR')}
         </div>
                                   <div className="flex items-center">
                                     <Clock className="w-4 h-4 mr-1" />
-                                    {session.duration}
-                                  </div>
-                                </div>
+                          {session.duration}
+                      </div>
                               </div>
+                            </div>
                             </div>
 
                             <div className="mt-4 pt-4 border-t border-gray-200">
-                              <Button
-                                variant="outline"
+            <Button
+                  variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleEditSession(session.id);
@@ -706,16 +871,16 @@ export default function AdminPage() {
                               >
                                 <Edit className="w-4 h-4 mr-2" />
                                 Επεξεργασία Συνεδρίας
-                              </Button>
+                </Button>
               </div>
                           </CardContent>
                         </Card>
-                      </div>
-                    </motion.div>
-          ))}
-        </div>
-              </div>
             </div>
+          </motion.div>
+        ))}
+      </div>
+        </div>
+    </div>
           )}
 
           {activeTab === "students" && <StudentsTab />}
