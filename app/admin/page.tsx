@@ -528,27 +528,33 @@ export default function AdminPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center sm:justify-center"
             onClick={handleCloseStudentModal}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+              initial={{ y: "100%", opacity: 0, scale: 1 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: "100%", opacity: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:w-[90%] sm:max-w-md h-[85vh] sm:h-auto sm:max-h-[80vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6">
+              {/* Mobile Pull Indicator */}
+              <div className="sm:hidden flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+              </div>
+
+              {/* Modal Header - Compact for Mobile */}
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 sm:p-6 flex-shrink-0">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white font-bold text-2xl">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-2xl">
                       {selectedStudentForModal.name.charAt(0)}
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">{selectedStudentForModal.name}</h2>
-                      <p className="text-blue-100">{selectedStudentForModal.age} ετών</p>
-                      <Badge className={`mt-2 ${
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg sm:text-2xl font-bold truncate">{selectedStudentForModal.name}</h2>
+                      <p className="text-blue-100 text-sm">{selectedStudentForModal.age} ετών</p>
+                      <Badge className={`mt-1 text-xs ${
                         selectedStudentForModal.status === 'active' ? 'bg-green-500 text-white' :
                         selectedStudentForModal.status === 'inactive' ? 'bg-gray-500 text-white' :
                         'bg-blue-500 text-white'
@@ -560,101 +566,116 @@ export default function AdminPage() {
                   </div>
                   <button
                     onClick={handleCloseStudentModal}
-                    className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                    className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors flex-shrink-0 ml-2"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Modal Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-                <div className="space-y-6">
+              {/* Modal Content - Mobile Optimized Scrolling */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 sm:p-6 space-y-6">
                   
-                  {/* Basic Information */}
+                  {/* Basic Information - Mobile Stacked */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <User className="w-5 h-5 mr-2 text-blue-500" />
                       Βασικά Στοιχεία
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Θεραπευτής</p>
-                        <p className="font-medium">{selectedStudentForModal.therapist}</p>
+                        <p className="text-sm text-gray-600 mb-1">Θεραπευτής</p>
+                        <p className="font-medium text-gray-900">{selectedStudentForModal.therapist}</p>
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Ημερομηνία εγγραφής</p>
-                        <p className="font-medium">{new Date(selectedStudentForModal.joinDate).toLocaleDateString('el-GR')}</p>
+                        <p className="text-sm text-gray-600 mb-1">Ημερομηνία εγγραφής</p>
+                        <p className="font-medium text-gray-900">{new Date(selectedStudentForModal.joinDate).toLocaleDateString('el-GR')}</p>
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Επόμενη συνεδρία</p>
-                        <p className="font-medium">{selectedStudentForModal.nextSession ? new Date(selectedStudentForModal.nextSession).toLocaleDateString('el-GR') : 'Μη προγραμματισμένη'}</p>
+                        <p className="text-sm text-gray-600 mb-1">Επόμενη συνεδρία</p>
+                        <p className="font-medium text-gray-900">{selectedStudentForModal.nextSession ? new Date(selectedStudentForModal.nextSession).toLocaleDateString('el-GR') : 'Μη προγραμματισμένη'}</p>
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Πρόοδος συνεδριών</p>
-                        <p className="font-medium">{selectedStudentForModal.sessionsCompleted}/{selectedStudentForModal.totalSessions}</p>
+                        <p className="text-sm text-gray-600 mb-1">Πρόοδος συνεδριών</p>
+                        <p className="font-medium text-gray-900">{selectedStudentForModal.sessionsCompleted}/{selectedStudentForModal.totalSessions}</p>
+                        <div className="mt-2 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${(selectedStudentForModal.sessionsCompleted / selectedStudentForModal.totalSessions) * 100}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
 
 
-                  {/* Parent Contact Information */}
+                  {/* Parent Contact Information - Mobile Optimized */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <User className="w-5 h-5 mr-2 text-blue-500" />
                       Στοιχεία Γονέα/Κηδεμόνα
                     </h3>
-                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg border border-blue-200">
+                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
                       <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-6 h-6 text-blue-600" />
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-blue-600" />
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{selectedStudentForModal.parentContact.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 truncate">{selectedStudentForModal.parentContact.name}</p>
                           <p className="text-sm text-gray-600">Γονέας/Κηδεμόνας</p>
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-3">
-                          <Phone className="w-5 h-5 text-green-600" />
-                          <div>
-                            <p className="text-xs text-gray-600">Τηλέφωνο</p>
-                            <p className="font-medium text-gray-900">{selectedStudentForModal.parentContact.phone}</p>
+                      <div className="space-y-3">
+                        <div className="bg-white p-3 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Phone className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-gray-600">Τηλέφωνο</p>
+                              <p className="font-medium text-gray-900 truncate">{selectedStudentForModal.parentContact.phone}</p>
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-3">
-                          <Mail className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <p className="text-xs text-gray-600">Email</p>
-                            <p className="font-medium text-gray-900">{selectedStudentForModal.parentContact.email}</p>
+                        <div className="bg-white p-3 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-gray-600">Email</p>
+                              <p className="font-medium text-gray-900 truncate">{selectedStudentForModal.parentContact.email}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex space-x-3 pt-4 border-t border-gray-200">
-                    <Button
-                      onClick={() => {
-                        handleCloseStudentModal();
-                        handleEditStudent(selectedStudentForModal);
-                      }}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Επεξεργασία
-                    </Button>
+                </div>
+              </div>
+
+              {/* Action Buttons - Mobile Optimized */}
+              <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200 flex-shrink-0">
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+                  <Button
+                    onClick={() => {
+                      handleCloseStudentModal();
+                      handleEditStudent(selectedStudentForModal);
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 py-3"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Επεξεργασία
+                  </Button>
+                  <div className="flex space-x-3">
                     <Button
                       onClick={() => {
                         handleCloseStudentModal();
                         handleStudentMessageClick(selectedStudentForModal.id);
                       }}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 py-3"
                     >
                       <MessageCircle className="w-4 h-4 mr-2" />
                       Μηνύματα
@@ -665,13 +686,12 @@ export default function AdminPage() {
                         handleDeleteStudent(selectedStudentForModal.id);
                       }}
                       variant="outline"
-                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      className="flex-1 py-3 text-red-600 hover:text-red-700 hover:border-red-300"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Διαγραφή
                     </Button>
                   </div>
-
                 </div>
               </div>
             </motion.div>
