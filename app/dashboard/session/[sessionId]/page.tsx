@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { ParentRoute } from "@/lib/auth-middleware";
+import { databases, storage, appwriteConfig } from "@/lib/appwrite.client";
+import { fileService } from "@/lib/fileService";
+import FilePreview from "@/components/FilePreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -178,7 +182,7 @@ const mockSession: SessionData = {
   ]
 };
 
-export default function SessionPage() {
+function SessionPageContent() {
   const router = useRouter();
   const params = useParams();
   const sessionId = params.sessionId as string;
@@ -189,9 +193,141 @@ export default function SessionPage() {
   });
   const [newComment, setNewComment] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [showFilePreview, setShowFilePreview] = useState(false);
 
-  // Get session data (in real app, this would fetch from API based on sessionId)
-  const session = useMemo(() => mockSession, []);
+  // Load session data from Appwrite
+  useEffect(() => {
+    const loadSessionData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load session from Appwrite
+        const session = await databases.getDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.collections.sessions,
+          sessionId
+        );
+
+        // Load session files from Appwrite Storage
+        const materials = { pdfs: [], videos: [], images: [] };
+        
+        try {
+          // Get files for this session from storage
+          const files = await storage.listFiles(appwriteConfig.buckets.files);
+          const sessionFiles = files.files.filter(file => 
+            file.name.startsWith(`${session.$id}_`)
+          );
+          
+          // Categorize files by type
+          sessionFiles.forEach(file => {
+            const fileType = file.mimeType || '';
+            const fileData = {
+              id: file.$id,
+              name: file.name.replace(`${session.$id}_`, ''), // Remove session ID prefix from display name
+              url: fileService.getFileViewUrl(file.$id),
+              type: fileType,
+              uploadDate: new Date(file.$createdAt).toLocaleDateString('el-GR')
+            };
+            
+            if (fileType.includes('pdf')) {
+              materials.pdfs.push(fileData);
+            } else if (fileType.includes('image')) {
+              materials.images.push(fileData);
+            } else if (fileType.includes('video')) {
+              materials.videos.push({
+                ...fileData,
+                thumbnail: fileService.getFilePreviewUrl(file.$id),
+                duration: "N/A" // Duration not available from Appwrite metadata
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error loading session files:', error);
+        }
+
+        // Parse JSON fields
+        let achievement = null;
+        let feedback = [];
+        
+        try {
+          if (session.achievement) {
+            achievement = JSON.parse(session.achievement);
+          }
+        } catch (error) {
+          console.error('Error parsing achievement:', error);
+        }
+        
+        try {
+          if (session.feedback) {
+            feedback = JSON.parse(session.feedback);
+          }
+        } catch (error) {
+          console.error('Error parsing feedback:', error);
+        }
+
+        // Convert feedback to expected format for UI
+        const formattedFeedback = feedback.map(f => ({
+          id: f.id,
+          text: f.message,
+          date: f.timestamp,
+          type: f.author === 'therapist' ? 'therapist' : 'parent',
+          author: f.author === 'therapist' ? 'Μαριλένα Νέστωρος' : 'Γονέας'
+        }));
+
+        // Convert achievement to achievements array for UI
+        const achievements = achievement ? [{
+          id: Date.now().toString(),
+          title: achievement.title,
+          description: achievement.description,
+          icon: achievement.icon === 'star' ? '⭐' : achievement.icon === 'trophy' ? '🏆' : achievement.icon === 'zap' ? '⚡' : '🥇',
+          type: achievement.type === 'skill' ? 'bronze' : achievement.type === 'milestone' ? 'silver' : 'gold',
+          earnedDate: new Date().toLocaleDateString('el-GR')
+        }] : [];
+
+        // Convert Appwrite session to UI format
+        const sessionForUI: SessionData = {
+          id: session.$id,
+          sessionNumber: session.sessionNumber,
+          title: session.title,
+          date: session.date.split('T')[0], // Convert to date only
+          duration: session.duration + ' λεπτά',
+          status: session.status === 'completed' ? 'completed' : session.status === 'locked' ? 'locked' : 'available',
+          isPaid: session.isPaid || false,
+          therapist: "Μαριλένα Νέστωρος", // Default therapist name
+          goals: [], // TODO: Load from session goals
+          description: session.sessionSummary || session.therapistNotes || session.title,
+          progress: {
+            overall: 78,
+            pronunciation: 85,
+            vocabulary: 70,
+            fluency: 75
+          },
+          materials,
+          feedback: formattedFeedback,
+          achievements
+        };
+
+        setSessionData(sessionForUI);
+        
+      } catch (error) {
+        console.error('Error loading session:', error);
+        // Fallback to mock data if loading fails
+        setSessionData(mockSession);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (sessionId) {
+      loadSessionData();
+    }
+  }, [sessionId]);
+
+  // Get session data
+  const session = sessionData;
 
   const toggleSection = useCallback((section: string) => {
     setExpandedSections(prev => ({
@@ -204,12 +340,113 @@ export default function SessionPage() {
     router.push('/dashboard');
   }, [router]);
 
-  const handleCommentSubmit = useCallback(() => {
-    if (newComment.trim()) {
-      console.log('New comment:', newComment);
-      setNewComment("");
+  const handleCommentSubmit = useCallback(async () => {
+    if (newComment.trim() && sessionData) {
+      try {
+        // Create new feedback entry
+        const newFeedback = {
+          id: Date.now().toString(),
+          author: "parent",
+          message: newComment.trim(),
+          timestamp: new Date().toLocaleString('el-GR'),
+          isRead: false
+        };
+
+        // Add to current feedback array
+        const updatedFeedback = [...(sessionData.feedback.map(f => ({
+          id: f.id,
+          author: f.type === 'therapist' ? 'therapist' : 'parent',
+          message: f.text,
+          timestamp: f.date,
+          isRead: false
+        }))), newFeedback];
+
+        // Update session in database
+        await databases.updateDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.collections.sessions,
+          sessionId,
+          {
+            feedback: JSON.stringify(updatedFeedback)
+          }
+        );
+
+        // Update local state
+        setSessionData({
+          ...sessionData,
+          feedback: [...sessionData.feedback, {
+            id: newFeedback.id,
+            text: newFeedback.message,
+            date: newFeedback.timestamp,
+            type: 'parent',
+            author: 'Γονέας'
+          }]
+        });
+
+        setNewComment("");
+      } catch (error) {
+        console.error('Error saving comment:', error);
+        alert('Σφάλμα κατά την αποθήκευση του σχολίου');
+      }
     }
-  }, [newComment]);
+  }, [newComment, sessionData, sessionId]);
+
+  // Handle file preview
+  const handleFilePreview = useCallback((file: { $id: string; name: string; type: string }) => {
+    const fileType = file.type || '';
+    const fileName = file.name || '';
+    
+    const fileForPreview = {
+      ...file,
+      type: fileType,
+      url: fileService.getFileViewUrl(file.id) // Always use view URL for preview
+    };
+    setPreviewFile(fileForPreview);
+    setShowFilePreview(true);
+  }, []);
+
+  // Handle file download
+  const handleFileDownload = useCallback(async (file: { $id: string; name: string }) => {
+    try {
+      const downloadUrl = fileService.getFileDownloadUrl(file.id);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Σφάλμα κατά τη λήψη του αρχείου');
+    }
+  }, []);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Φόρτωση συνεδρίας...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no session data
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Η συνεδρία δεν βρέθηκε.</p>
+          <Button onClick={handleBackClick} className="mt-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Επιστροφή στο Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
 
 
@@ -272,7 +509,37 @@ export default function SessionPage() {
           </CardContent>
         </Card>
 
-
+        {/* Achievement Section */}
+        {session.achievements.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <span className="text-2xl">🏆</span>
+                <span>Επίτευγμα / Βραβείο</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {session.achievements.map((achievement) => (
+                <div key={achievement.id} className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-6">
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-2xl">
+                      {achievement.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-yellow-900 text-xl">{achievement.title}</h3>
+                      <p className="text-yellow-700 capitalize">
+                        {achievement.type === 'bronze' ? 'Δεξιότητα' : 
+                         achievement.type === 'silver' ? 'Ορόσημο' : 'Ανακάλυψη'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-yellow-800 leading-relaxed">{achievement.description}</p>
+                  <p className="text-yellow-600 text-sm mt-2">Κερδήθηκε: {achievement.earnedDate}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Materials Section */}
         <Card>
@@ -319,11 +586,19 @@ export default function SessionPage() {
                               </p>
                             </div>
                             <div className="flex items-center space-x-2 ml-4">
-                              <Button size="sm" variant="outline">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleFilePreview(pdf)}
+                              >
                                 <Eye className="w-4 h-4 mr-1" />
                                 <span className="hidden sm:inline">Προβολή</span>
                               </Button>
-                              <Button size="sm" variant="outline">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleFileDownload(pdf)}
+                              >
                                 <Download className="w-4 h-4 mr-1" />
                                 <span className="hidden sm:inline">Λήψη</span>
                               </Button>
@@ -350,7 +625,11 @@ export default function SessionPage() {
                             <div className="p-3">
                               <h5 className="font-medium text-gray-900 mb-1">{video.name}</h5>
                               <p className="text-sm text-gray-600 mb-3">Διάρκεια: {video.duration}</p>
-                              <Button size="sm" className="w-full">
+                              <Button 
+                                size="sm" 
+                                className="w-full"
+                                onClick={() => handleFilePreview(video)}
+                              >
                                 <Play className="w-4 h-4 mr-2" />
                                 Αναπαραγωγή
                               </Button>
@@ -373,11 +652,24 @@ export default function SessionPage() {
                           <div 
                             key={image.id} 
                             className="aspect-square bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                            onClick={() => setSelectedImageIndex(index)}
+                            onClick={() => handleFilePreview(image)}
                           >
-                            <div className="w-full h-full flex items-center justify-center">
-                              <ImageIcon className="w-8 h-8 text-gray-400" />
-                            </div>
+                            <img
+                              src={image.url}
+                              alt={image.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to placeholder on error
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement.innerHTML = `
+                                  <div class="w-full h-full flex items-center justify-center">
+                                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                  </div>
+                                `;
+                              }}
+                            />
                           </div>
                         ))}
                       </div>
@@ -448,6 +740,24 @@ export default function SessionPage() {
         <div className="h-20 md:h-8"></div>
 
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <FilePreview
+          file={previewFile}
+          isOpen={showFilePreview}
+          onClose={() => { setShowFilePreview(false); setPreviewFile(null); }}
+          onDownload={() => handleFileDownload(previewFile)}
+        />
+      )}
     </div>
+  );
+}
+
+export default function SessionPage() {
+  return (
+    <ParentRoute>
+      <SessionPageContent />
+    </ParentRoute>
   );
 }

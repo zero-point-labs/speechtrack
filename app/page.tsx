@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Users, BookOpen, ArrowRight, CheckCircle, Heart } from "lucide-react";
+import { MessageCircle, Users, BookOpen, ArrowRight, CheckCircle, Heart, Shield, User } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/lib/auth-middleware";
 
 export default function Home() {
-  const [isSignedIn, setIsSignedIn] = useState(false);
+  const { user, isAuthenticated, isAdmin, isParent } = useAuth();
   const router = useRouter();
 
   return (
@@ -23,18 +24,21 @@ export default function Home() {
         </div>
         
         <div className="flex items-center space-x-4">
-          {isSignedIn ? (
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button 
-                onClick={() => router.push('/dashboard')}
-                variant="outline"
+          {isAuthenticated ? (
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600">Welcome, {user?.name}</span>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Ταμπλό
-              </Button>
-            </motion.div>
+                <Button 
+                  onClick={() => router.push(isAdmin ? '/admin' : '/dashboard')}
+                  variant="outline"
+                >
+                  {isAdmin ? 'Admin Panel' : 'Dashboard'}
+                </Button>
+              </motion.div>
+            </div>
           ) : (
             <>
               <motion.div
@@ -43,10 +47,7 @@ export default function Home() {
               >
                 <Button 
                   variant="ghost" 
-                  onClick={() => {
-                    setIsSignedIn(true);
-                    router.push('/dashboard');
-                  }}
+                  onClick={() => router.push('/login')}
                   className="text-gray-600 hover:text-gray-900"
                 >
                   Σύνδεση
@@ -57,10 +58,7 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Button 
-                  onClick={() => {
-                    setIsSignedIn(true);
-                    router.push('/dashboard');
-                  }}
+                  onClick={() => router.push('/signup')}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   Εγγραφή
@@ -84,22 +82,26 @@ export default function Home() {
             που παρακολουθεί την πρόοδο, οργανώνει συνεδρίες και ενισχύει την επικοινωνία για καλύτερα αποτελέσματα θεραπείας.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            {isSignedIn ? (
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Button 
-                  size="lg" 
-                  className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
-                  onClick={() => router.push('/dashboard')}
+          {/* Dashboard Access Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            {isAuthenticated ? (
+              <>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  Μετάβαση στο Ταμπλό
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-              </motion.div>
+                  <Button 
+                    size="lg" 
+                    className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
+                    onClick={() => router.push(isAdmin ? '/admin' : '/dashboard')}
+                  >
+                    Μετάβαση στο {isAdmin ? 'Admin Panel' : 'Dashboard'}
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                </motion.div>
+
+              </>
             ) : (
               <>
                 <motion.div
@@ -110,10 +112,7 @@ export default function Home() {
                   <Button 
                     size="lg" 
                     className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
-                    onClick={() => {
-                      setIsSignedIn(true);
-                      router.push('/dashboard');
-                    }}
+                    onClick={() => router.push('/signup')}
                   >
                     Ξεκινήστε Δωρεάν
                     <ArrowRight className="ml-2 w-5 h-5" />
@@ -128,16 +127,48 @@ export default function Home() {
                     size="lg" 
                     variant="outline" 
                     className="text-lg px-8 py-6 border-gray-300"
-                    onClick={() => {
-                      setIsSignedIn(true);
-                      router.push('/dashboard');
-                    }}
+                    onClick={() => router.push('/login')}
                   >
                     Σύνδεση
                   </Button>
                 </motion.div>
               </>
             )}
+          </div>
+
+          {/* Quick Access Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Button 
+                variant="outline"
+                size="sm"
+                className="bg-white/80 backdrop-blur-sm border-blue-200 text-blue-700 hover:bg-blue-50 px-6 py-3"
+                onClick={() => router.push('/dashboard')}
+              >
+                <User className="mr-2 w-4 h-4" />
+                Parent Dashboard
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Button 
+                variant="outline"
+                size="sm"
+                className="bg-white/80 backdrop-blur-sm border-purple-200 text-purple-700 hover:bg-purple-50 px-6 py-3"
+                onClick={() => router.push('/admin')}
+              >
+                <Shield className="mr-2 w-4 h-4" />
+                Admin Panel
+              </Button>
+            </motion.div>
+
           </div>
           
           <div className="flex items-center justify-center space-x-8 text-sm text-gray-500">
@@ -205,13 +236,13 @@ export default function Home() {
             Συμμετέχετε σε οικογένειες και θεραπευτές που ήδη βλέπουν καλύτερα αποτελέσματα με το SpeechTrack.
           </p>
           
-          {isSignedIn ? (
+          {isAuthenticated ? (
             <Button 
               size="lg" 
               className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-6"
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push(isAdmin ? '/admin' : '/dashboard')}
             >
-              Πρόσβαση στο Ταμπλό σας
+              Πρόσβαση στο {isAdmin ? 'Admin Panel' : 'Dashboard'} σας
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           ) : (
@@ -219,10 +250,7 @@ export default function Home() {
               <Button 
                 size="lg" 
                 className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-6"
-                onClick={() => {
-                  setIsSignedIn(true);
-                  router.push('/dashboard');
-                }}
+                onClick={() => router.push('/signup')}
               >
                 Ξεκίνημα Δωρεάν Δοκιμής
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -231,10 +259,7 @@ export default function Home() {
                 size="lg" 
                 variant="outline" 
                 className="border-white text-white hover:bg-white hover:text-blue-600 text-lg px-8 py-6"
-                onClick={() => {
-                  setIsSignedIn(true);
-                  router.push('/dashboard');
-                }}
+                onClick={() => router.push('/login')}
               >
                 Sign In
               </Button>

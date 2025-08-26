@@ -2,12 +2,34 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { ParentRoute, useLogout, useAuth } from "@/lib/auth-middleware";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
+import { fileService } from "@/lib/fileService";
+import FilePreview from "@/components/FilePreview";
+import EnhancedProgressCard from "@/components/EnhancedProgressCard";
+
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth: string): number => {
+  if (!dateOfBirth) return 0;
+  
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};
+
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   BookOpen, 
@@ -37,14 +59,37 @@ import {
   ChevronDown,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Key,
+  AlertCircle
 } from "lucide-react";
 
 // TypeScript interfaces
+interface Message {
+  $id: string;
+  studentId: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  messageType: 'text' | 'system' | 'notification';
+  $createdAt: string;
+  $updatedAt: string;
+}
+
+interface Student {
+  $id: string;
+  name: string;
+  age?: number;
+  dateOfBirth?: string;
+  parentContact: string;
+}
+
 interface Child {
   id: string;
   name: string;
-  age: number;
+  age: number; // Legacy field - will be removed
+  dateOfBirth?: string; // New field for age calculation
   avatar: string;
   totalSessions: number;
   completedSessions: number;
@@ -77,7 +122,7 @@ interface SessionData {
   title: string;
   date: string;
   duration: string;
-  status: 'completed' | 'in-progress' | 'scheduled';
+  status: 'completed' | 'locked' | 'canceled';
   isPaid?: boolean;
   description: string;
   sessionSummary?: string;
@@ -268,7 +313,7 @@ const mockSessions = [
     id: "5",
     sessionNumber: 5,
     date: "2024-01-29",
-    status: "available" as const,
+    status: "locked" as const,
     isPaid: false,
     title: "Εξάσκηση Συνομιλίας",
     duration: "45 λεπτά",
@@ -298,20 +343,11 @@ const mockSessions = [
   }
 ];
 
-// Mock conversation data for dashboard (single conversation with therapist)
-const mockTherapistConversation = {
-  therapistName: "Μαριλένα Νέστωρος",
-  messages: [
-    { id: "1", sender: "therapist", message: "Καλημέρα! Πώς πήγε η εξάσκηση σήμερα;", timestamp: "2024-01-15 09:00", isRead: true },
-    { id: "2", sender: "parent", message: "Καλημέρα! Η Εμμα ήταν πολύ ενθουσιασμένη και έκανε όλες τις ασκήσεις.", timestamp: "2024-01-15 09:15", isRead: true },
-    { id: "3", sender: "therapist", message: "Τέλεια! Παρατήρησα μεγάλη βελτίωση στην τελευταία συνεδρία. Συνεχίστε έτσι!", timestamp: "2024-01-15 09:30", isRead: true },
-    { id: "4", sender: "parent", message: "Ευχαριστούμε! Η Εμμα ρωτάει πότε θα μάθει νέες λέξεις.", timestamp: "2024-01-15 14:20", isRead: true },
-    { id: "5", sender: "therapist", message: "Στην επόμενη συνεδρία θα εισάγουμε νέες λέξεις με τον ήχο 'Ρ'. Θα της αρέσει!", timestamp: "2024-01-15 15:45", isRead: false }
-  ],
-  unreadCount: 1
-};
+// Note: Mock conversation data has been replaced with real Appwrite data integration
 
-export default function Dashboard() {
+function DashboardContent() {
+  const logout = useLogout();
+  const { user, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("journey");
   const [newComment, setNewComment] = useState("");
   const [selectedImageIndexes, setSelectedImageIndexes] = useState<{[key: string]: number}>({});
@@ -321,7 +357,320 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
   const [firstModalOpen, setFirstModalOpen] = useState(true);
+  const [linkedStudent, setLinkedStudent] = useState<Student | null>(null);
+  const [checkingStudent, setCheckingStudent] = useState(true);
+  const [previewFile, setPreviewFile] = useState<{ id: string; name: string; type: string; url: string } | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [showFilePreview, setShowFilePreview] = useState(false);
   const router = useRouter();
+
+  // State for real data
+  const [realSessions, setRealSessions] = useState([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [completedSessions, setCompletedSessions] = useState(0);
+  const [sessionsPerPage] = useState(12);
+  const [loadingPage, setLoadingPage] = useState(false);
+
+  // Check for linked student (skip for admin users)
+  useEffect(() => {
+    const checkLinkedStudent = async () => {
+      if (!user?.id) return;
+
+      // Admin users don't need client codes, so skip the check
+      if (isAdmin) {
+        setLinkedStudent({ id: 'admin', name: 'Admin User' }); // Mock student for admin
+        setCheckingStudent(false);
+        return;
+      }
+
+      try {
+        setCheckingStudent(true);
+        
+        // Find student linked to this parent
+        const studentQuery = await databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.collections.students,
+          [
+            Query.equal('parentId', user.id)
+          ]
+        );
+
+        if (studentQuery.documents.length > 0) {
+          const student = studentQuery.documents[0];
+          setLinkedStudent(student);
+          
+          // Load sessions for this student
+          await loadSessionsForStudent(student.$id, 1);
+        } else {
+          setLinkedStudent(null);
+        }
+      } catch (error) {
+        console.error('Error checking linked student:', error);
+        setLinkedStudent(null);
+      } finally {
+        setCheckingStudent(false);
+      }
+    };
+
+    checkLinkedStudent();
+  }, [user?.id, isAdmin]);
+
+  // Load messages for the linked student
+  const loadMessages = useCallback(async () => {
+    if (!linkedStudent?.$id) return;
+    
+    try {
+      setMessagesLoading(true);
+      
+      const messagesResponse = await databases.listDocuments(
+        appwriteConfig.databaseId!,
+        appwriteConfig.collections.messages!,
+        [
+          Query.equal('studentId', linkedStudent.$id),
+          Query.orderAsc('$createdAt'),
+          Query.limit(100)
+        ]
+      );
+      
+      setMessages(messagesResponse.documents);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [linkedStudent?.$id]);
+
+  // Calculate unread messages count
+  const unreadCount = useMemo(() => {
+    return messages.filter(m => !m.isRead && m.senderId !== user?.id).length;
+  }, [messages, user?.id]);
+
+  // Load messages when linked student changes
+  useEffect(() => {
+    if (linkedStudent) {
+      loadMessages();
+    }
+  }, [linkedStudent, loadMessages]);
+
+  // Load sessions for student with pagination
+  const loadSessionsForStudent = useCallback(async (studentId: string, page: number = 1) => {
+    try {
+      setLoadingPage(page !== 1); // Show loading for page changes, not initial load
+      
+      console.log('Loading sessions for student:', studentId, 'page:', page);
+      
+      // First, get total count of sessions for this student
+      const totalCountResponse = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessions,
+        [
+          Query.equal('studentId', studentId),
+          Query.limit(1) // We just need the total count
+        ]
+      );
+      
+      const totalCount = totalCountResponse.total;
+      setTotalSessions(totalCount);
+      setTotalPages(Math.ceil(totalCount / sessionsPerPage));
+      
+      // Get count of completed sessions
+      const completedCountResponse = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessions,
+        [
+          Query.equal('studentId', studentId),
+          Query.equal('status', 'completed'),
+          Query.limit(1) // We just need the total count
+        ]
+      );
+      
+      setCompletedSessions(completedCountResponse.total);
+      
+      // Then get the paginated sessions
+      const offset = (page - 1) * sessionsPerPage;
+      const sessionsResponse = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessions,
+        [
+          Query.equal('studentId', studentId),
+          Query.orderAsc('sessionNumber'),
+          Query.limit(sessionsPerPage),
+          Query.offset(offset)
+        ]
+      );
+      
+      console.log(`Loaded ${sessionsResponse.documents.length} sessions for student: ${studentId} (page ${page})`);
+      console.log('Raw sessions response:', sessionsResponse);
+      
+      // Convert real sessions to the format expected by the UI
+      const realSessionsData = await Promise.all(sessionsResponse.documents.map(async session => {
+        // Load session files from Appwrite Storage
+        const materials = { pdfs: [], images: [], videos: [] };
+        
+        try {
+          // Get files for this session from storage
+          // Files are uploaded with sessionId prefix in their name
+          const files = await storage.listFiles(appwriteConfig.buckets.files);
+          const sessionFiles = files.files.filter(file => 
+            file.name.startsWith(`${session.$id}_`)
+          );
+          
+          // Categorize files by type
+          sessionFiles.forEach(file => {
+            const fileType = file.mimeType || '';
+            const fileData = {
+              id: file.$id,
+              name: file.name.replace(`${session.$id}_`, ''), // Remove session ID prefix from display name
+              size: fileService.formatFileSize(file.sizeOriginal),
+              uploadDate: new Date(file.$createdAt).toLocaleDateString('el-GR'),
+              url: fileService.getFileViewUrl(file.$id),
+              type: fileType,
+              description: `Uploaded on ${new Date(file.$createdAt).toLocaleDateString('el-GR')}`
+            };
+            
+            if (fileType.includes('pdf')) {
+              materials.pdfs.push(fileData);
+            } else if (fileType.includes('image')) {
+              materials.images.push(fileData);
+            } else if (fileType.includes('video')) {
+              materials.videos.push(fileData);
+            }
+          });
+        } catch (error) {
+          console.error('Error loading session files:', error);
+        }
+        
+        // Parse JSON fields
+        let achievement = null;
+        let feedback = [];
+        
+        try {
+          if (session.achievement) {
+            achievement = JSON.parse(session.achievement);
+          }
+        } catch (error) {
+          console.error('Error parsing achievement:', error);
+        }
+        
+        try {
+          if (session.feedback) {
+            feedback = JSON.parse(session.feedback);
+          }
+        } catch (error) {
+          console.error('Error parsing feedback:', error);
+        }
+
+        // Debug logging
+        console.log('Session data for', session.title, ':', {
+          sessionSummary: session.sessionSummary,
+          achievement: session.achievement,
+          feedback: session.feedback,
+          parsed: { achievement, feedback }
+        });
+
+        return {
+          id: session.$id,
+          sessionNumber: session.sessionNumber,
+          title: session.title,
+          description: session.description || '',
+          date: session.date,
+          duration: session.duration + ' λεπτά',
+          status: session.status === 'available' ? 'locked' : session.status === 'cancelled' ? 'canceled' : session.status,
+          isLocked: session.status === 'locked' || session.status === 'available',
+          isPaid: session.isPaid,
+          therapistNotes: session.therapistNotes || '',
+          homework: [],
+          achievements: achievement ? [achievement] : [], // Convert single achievement to array for UI compatibility
+          sessionSummary: session.sessionSummary || session.therapistNotes || '',
+          achievement, // Keep the single achievement object for detailed display
+          materials,
+          feedback
+        };
+      }));
+      
+      setRealSessions(realSessionsData);
+      setCurrentPage(page);
+      
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+    } finally {
+      setLoadingPage(false);
+    }
+  }, [sessionsPerPage]);
+
+  // Calculate real stats from session data
+  const calculateStats = useCallback(() => {
+    if (totalSessions > 0) {
+      const remainingCount = totalSessions - completedSessions;
+      const completionPercentage = Math.round((completedSessions / totalSessions) * 100);
+      
+      return {
+        completed: completedSessions,
+        remaining: remainingCount,
+        total: totalSessions,
+        percentage: completionPercentage
+      };
+    }
+    
+    // Fallback to mock data if no real sessions
+    return {
+      completed: mockChild.completedSessions,
+      remaining: mockChild.totalSessions - mockChild.completedSessions,
+      total: mockChild.totalSessions,
+      percentage: Math.round((mockChild.completedSessions / mockChild.totalSessions) * 100)
+    };
+  }, [totalSessions, completedSessions]);
+
+  // Pagination handlers
+  const handlePreviousPage = useCallback(async () => {
+    if (currentPage > 1 && linkedStudent) {
+      const newPage = currentPage - 1;
+      await loadSessionsForStudent(linkedStudent.$id, newPage);
+    }
+  }, [currentPage, linkedStudent, loadSessionsForStudent]);
+
+  const handleNextPage = useCallback(async () => {
+    if (currentPage < totalPages && linkedStudent) {
+      const newPage = currentPage + 1;
+      await loadSessionsForStudent(linkedStudent.$id, newPage);
+    }
+  }, [currentPage, totalPages, linkedStudent, loadSessionsForStudent]);
+
+  // Handle file preview
+  const handleFilePreview = (file: { $id: string; name: string; type: string }) => {
+    // Create file object with proper URL for preview
+    const fileType = file.type || '';
+    const fileName = file.name || '';
+    
+    const fileForPreview = {
+      ...file,
+      type: fileType,
+      url: fileService.getFileViewUrl(file.id) // Always use view URL for preview
+    };
+    setPreviewFile(fileForPreview);
+    setShowFilePreview(true);
+  };
+
+  // Handle file download
+  const handleFileDownload = async (file: { $id: string; name: string }) => {
+    try {
+      const downloadUrl = fileService.getFileDownloadUrl(file.id);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Σφάλμα κατά τη λήψη του αρχείου');
+    }
+  };
 
   // Debug logging - uncomment to debug renders
   // console.log("Dashboard render - activeTab:", activeTab, "selectedSession:", selectedSession?.id, "modalActiveTab:", modalActiveTab);
@@ -561,7 +910,35 @@ export default function Dashboard() {
                   </motion.div>
                 )}
 
-
+                {/* Achievement Section */}
+                {selectedSession.achievement && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4 sm:p-6"
+                  >
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                        <div className="text-xl sm:text-2xl">
+                          {selectedSession.achievement.icon === 'star' ? '⭐' :
+                           selectedSession.achievement.icon === 'zap' ? '⚡' :
+                           selectedSession.achievement.icon === 'trophy' ? '🏆' : '🥇'}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-yellow-900 text-lg sm:text-xl">{selectedSession.achievement.title}</h3>
+                        <p className="text-yellow-700 text-sm sm:text-base capitalize">
+                          {selectedSession.achievement.type === 'milestone' ? 'Ορόσημο' :
+                           selectedSession.achievement.type === 'skill' ? 'Δεξιότητα' : 'Ανακάλυψη'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-yellow-800 leading-relaxed text-sm sm:text-base">
+                      {selectedSession.achievement.description}
+                    </p>
+                  </motion.div>
+                )}
 
                 {/* PDF Preview */}
                 {selectedSession.materials.pdfs.length > 0 && (
@@ -597,11 +974,21 @@ export default function Dashboard() {
                               </div>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-                              <Button size="sm" variant="outline" className="min-h-[36px] text-xs active:scale-95">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="min-h-[36px] text-xs active:scale-95"
+                                onClick={() => handleFilePreview(pdf)}
+                              >
                                 <Eye className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                                 <span className="hidden sm:inline">Προεπισκόπηση</span>
                               </Button>
-                              <Button size="sm" variant="outline" className="min-h-[36px] text-xs active:scale-95">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="min-h-[36px] text-xs active:scale-95"
+                                onClick={() => handleFileDownload(pdf)}
+                              >
                                 <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                                 <span className="hidden sm:inline">Λήψη</span>
                               </Button>
@@ -646,7 +1033,11 @@ export default function Dashboard() {
                                 <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mt-1">{video.description}</p>
                               </div>
                             </div>
-                            <Button size="sm" className="bg-purple-500 hover:bg-purple-600 min-h-[36px] text-xs active:scale-95 flex-shrink-0">
+                            <Button 
+                              size="sm" 
+                              className="bg-purple-500 hover:bg-purple-600 min-h-[36px] text-xs active:scale-95 flex-shrink-0"
+                              onClick={() => handleFilePreview(video)}
+                            >
                               <PlayCircle className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                               <span className="hidden sm:inline">Αναπαραγωγή</span>
                             </Button>
@@ -697,14 +1088,25 @@ export default function Dashboard() {
                                 </div>
                               </div>
                             </div>
-                          ) : (
+                          ) : selectedSession.materials.images[currentImageIndex] ? (
                             <img
-                              src="https://via.placeholder.com/600x400/e5e7eb/9ca3af?text=Session+Image"
-                              alt={selectedSession.materials.images[currentImageIndex]?.name}
+                              src={selectedSession.materials.images[currentImageIndex].url}
+                              alt={selectedSession.materials.images[currentImageIndex].name}
                               className="w-full h-full object-cover"
                               loading="lazy"
                               onLoad={() => setIsLoading(prev => ({ ...prev, [`image-${selectedSession.id}`]: false }))}
+                              onError={(e) => {
+                                // Fallback to placeholder on error
+                                e.currentTarget.src = "https://via.placeholder.com/600x400/e5e7eb/9ca3af?text=Image+Not+Found";
+                              }}
                             />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">
+                              <div className="text-center">
+                                <ImageIcon className="w-16 h-16 mx-auto mb-2 text-gray-400" />
+                                <p>No images available</p>
+                              </div>
+                            </div>
                           )}
                         </div>
                         
@@ -783,10 +1185,14 @@ export default function Dashboard() {
                               }`}
                             >
                               <img
-                                src="https://via.placeholder.com/64x64/e5e7eb/9ca3af?text=Img"
+                                src={image.url}
                                 alt={image.name}
                                 className="w-full h-full object-cover"
                                 loading="lazy"
+                                onError={(e) => {
+                                  // Fallback to placeholder on error
+                                  e.currentTarget.src = "https://via.placeholder.com/64x64/e5e7eb/9ca3af?text=Img";
+                                }}
                               />
                             </button>
                           ))}
@@ -878,9 +1284,29 @@ export default function Dashboard() {
                             size="sm" 
                             disabled={!newComment.trim()}
                             className="bg-blue-500 hover:bg-blue-600 min-h-[40px] text-sm active:scale-95 w-full sm:w-auto order-1 sm:order-2"
-                            onClick={() => {
-                              simulateLoading('comment-submit', 800);
-                              setNewComment("");
+                            onClick={async () => {
+                              if (newComment.trim()) {
+                                simulateLoading('comment-submit', 800);
+                                
+                                const newFeedback = {
+                                  id: Date.now().toString(),
+                                  author: "parent",
+                                  message: newComment.trim(),
+                                  timestamp: new Date().toLocaleString('el-GR'),
+                                  isRead: false
+                                };
+                                
+                                // Update local state immediately for UI
+                                setSelectedSession({
+                                  ...selectedSession,
+                                  feedback: [...selectedSession.feedback, newFeedback]
+                                });
+                                
+                                // TODO: Save to database
+                                // This would require an API endpoint to update session feedback
+                                
+                                setNewComment("");
+                              }
                             }}
                           >
                             {isLoading['comment-submit'] ? (
@@ -924,75 +1350,58 @@ export default function Dashboard() {
 
   const JourneyBoard = () => (
     <div className="space-y-8 pb-8 md:pb-0">
-      {/* Enhanced Progress Overview */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <Card className="relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-blue-50 via-purple-50 to-orange-50">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-orange-500/10"></div>
-          <CardContent className="relative pt-8 pb-8">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white shadow-lg mb-4">
-                <div className="text-3xl">🎯</div>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Το Λογοθεραπευτικό Ταξίδι της Εμμας</h3>
-              <p className="text-gray-600">Κάνει αξιοθαύμαστη πρόοδο κάθε συνεδρία!</p>
-            </div>
-            
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="#E5E7EB"
-                    strokeWidth="3"
-                  />
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="url(#progressGradient)"
-                    strokeWidth="3"
-                    strokeDasharray={`${(mockChild.completedSessions / mockChild.totalSessions) * 100}, 100`}
-                    className="transition-all duration-1000 ease-out"
-                  />
-                  <defs>
-                    <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#3B82F6" />
-                      <stop offset="100%" stopColor="#F97316" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {Math.round((mockChild.completedSessions / mockChild.totalSessions) * 100)}%
-                    </div>
-                    <div className="text-sm text-gray-600">Ολοκληρωμένο</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <EnhancedProgressCard
+        studentName={linkedStudent?.name || "Εμμας"}
+        completedSessions={calculateStats().completed}
+        totalSessions={calculateStats().total}
+        remainingSessions={calculateStats().remaining}
+        streak={linkedStudent?.streak || 0}
+        level={linkedStudent?.level || "Αρχάριος"}
+        achievements={linkedStudent?.achievements || []}
+      />
 
-            <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-4 text-center">
-              <div className="flex justify-between items-center md:flex-col md:justify-center">
-                <div className="text-sm text-gray-600 md:order-2 md:text-sm">Ολοκληρωμένες</div>
-                <div className="text-2xl md:text-2xl font-bold text-blue-600 md:order-1">{mockChild.completedSessions}</div>
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white rounded-lg border p-4">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1 || loadingPage}
+              className="flex items-center space-x-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Προηγούμενη</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages || loadingPage}
+              className="flex items-center space-x-1"
+            >
+              <span>Επόμενη</span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {loadingPage && (
+              <div className="flex items-center space-x-2 text-blue-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm">Φόρτωση...</span>
               </div>
-              <div className="flex justify-between items-center md:flex-col md:justify-center">
-                <div className="text-sm text-gray-600 md:order-2 md:text-sm">Υπολοίπονται</div>
-                <div className="text-2xl md:text-2xl font-bold text-orange-600 md:order-1">{mockChild.totalSessions - mockChild.completedSessions}</div>
-              </div>
-              <div className="flex justify-between items-center md:flex-col md:justify-center">
-                <div className="text-sm text-gray-600 md:order-2 md:text-sm">Επιτεύγματα</div>
-                <div className="text-2xl md:text-2xl font-bold text-purple-600 md:order-1">3</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            )}
+            <span className="text-sm text-gray-600">
+              Σελίδα {currentPage} από {totalPages}
+            </span>
+            <span className="text-xs text-gray-500">
+              ({realSessions.length} από {totalSessions} συνεδρίες)
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="relative px-2 md:px-0">
@@ -1004,14 +1413,14 @@ export default function Dashboard() {
           className="absolute left-5 md:left-8 top-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"
           initial={{ height: 0 }}
           animate={{ 
-            height: `${(mockChild.completedSessions / mockSessions.length) * 100}%` 
+            height: `${calculateStats().percentage}%`
           }}
           transition={{ duration: 1.5, ease: "easeOut" }}
         />
 
         {/* Session Cards */}
         <div className="space-y-6 md:space-y-8 pb-32 md:pb-8">
-        {mockSessions.map((session, index) => (
+        {(realSessions.length > 0 ? realSessions : mockSessions).map((session, index) => (
           <motion.div
             key={session.id}
             initial={{ opacity: 0, x: -50 }}
@@ -1029,16 +1438,16 @@ export default function Dashboard() {
                   w-10 h-10 md:w-16 md:h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-[5] md:z-10
                   ${session.status === "completed" 
                     ? "bg-gradient-to-br from-green-400 to-green-600" 
-                    : session.status === "available"
-                    ? "bg-gradient-to-br from-blue-400 to-blue-600"
+                    : session.status === "canceled"
+                    ? "bg-gradient-to-br from-red-400 to-red-600"
                     : "bg-gradient-to-br from-gray-300 to-gray-500"
                   }
                 `}
               >
                 {session.status === "completed" ? (
                   <CheckCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
-                ) : session.status === "available" ? (
-                  <PlayCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
+                ) : session.status === "canceled" ? (
+                  <X className="w-5 h-5 md:w-8 md:h-8 text-white" />
                 ) : (
                   <Lock className="w-4 h-4 md:w-6 md:h-6 text-white" />
                 )}
@@ -1072,8 +1481,8 @@ export default function Dashboard() {
                     overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer group
                     ${session.status === "completed" 
                       ? "bg-gradient-to-br from-white to-green-50/30 border-green-200/50 hover:border-green-300" 
-                      : session.status === "available"
-                      ? "bg-gradient-to-br from-white to-blue-50/30 border-blue-200/50 hover:border-blue-300"
+                      : session.status === "canceled"
+                      ? "bg-gradient-to-br from-white to-red-50/30 border-red-200/50 hover:border-red-300"
                       : "bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200/50 hover:border-gray-300"
                     }
                   `}
@@ -1091,7 +1500,7 @@ export default function Dashboard() {
                         {/* Main session info */}
                         <div className="flex items-center flex-wrap gap-2 mb-2">
                           <h4 className="font-semibold text-gray-900 text-base md:text-lg group-hover:text-blue-700 transition-colors">
-                            Session {session.sessionNumber}
+                            {session.title}
                           </h4>
                           <Badge 
                             variant={session.isPaid ? "default" : "destructive"}
@@ -1111,7 +1520,7 @@ export default function Dashboard() {
                         </div>
                         
                         <h5 className="font-medium text-gray-700 text-sm md:text-base mb-2 group-hover:text-gray-900 transition-colors line-clamp-1">
-                          {session.title}
+                          Συνεδρία {session.sessionNumber}
                         </h5>
                         
                         {/* Essential metadata */}
@@ -1152,114 +1561,167 @@ export default function Dashboard() {
     </div>
   );
 
-  const ProfileTab = () => (
-    <div className="space-y-6 pb-32 md:pb-8">
-      {/* Child Profile Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-3">
-            <Avatar className="w-12 h-12">
-              <AvatarImage src={mockChild.profileImage} />
-              <AvatarFallback className="bg-blue-100 text-blue-600 text-lg font-semibold">
-                {mockChild.name.split(' ').map(n => n[0]).join('')}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">{mockChild.name}</h2>
-              <p className="text-gray-600">Ηλικία {mockChild.age} ετών</p>
-              <Badge className={`mt-1 ${
-                mockChild.status === 'active' ? 'bg-green-100 text-green-800' :
-                mockChild.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                'bg-blue-100 text-blue-800'
-              }`}>
-                {mockChild.status === 'active' ? 'Ενεργός' :
-                 mockChild.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
-              </Badge>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-medium text-gray-900 mb-3">Βασικά Στοιχεία</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Θεραπευτής:</span>
-                  <span className="font-medium">{mockChild.therapist}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Ημερομηνία εγγραφής:</span>
-                  <span className="font-medium">{new Date(mockChild.joinDate).toLocaleDateString('el-GR')}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Επόμενη συνεδρία:</span>
-                  <span className="font-medium">{new Date(mockChild.nextSession).toLocaleDateString('el-GR')}</span>
-                </div>
+  const ProfileTab = () => {
+    // Parse parent contact info from linkedStudent
+    const getParentContactInfo = () => {
+      if (!linkedStudent?.parentContact) {
+        return { name: 'Δεν υπάρχουν στοιχεία', phone: '-', email: '-' };
+      }
+      
+      try {
+        const contact = typeof linkedStudent.parentContact === 'string' 
+          ? JSON.parse(linkedStudent.parentContact) 
+          : linkedStudent.parentContact;
+        return {
+          name: contact.name || 'Δεν υπάρχουν στοιχεία',
+          phone: contact.phone || '-',
+          email: contact.email || '-'
+        };
+      } catch (error) {
+        console.error('Error parsing parent contact:', error);
+        return { name: 'Δεν υπάρχουν στοιχεία', phone: '-', email: '-' };
+      }
+    };
+
+    const parentContact = getParentContactInfo();
+    const nextSession = realSessions.find(s => s.status === 'locked') || realSessions.find(s => s.status === 'completed');
+
+    return (
+      <div className="space-y-6 pb-32 md:pb-8">
+        {/* Logout Section */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Account Settings</h3>
+                <p className="text-sm text-gray-600">Manage your account and logout</p>
               </div>
+              <Button
+                onClick={logout}
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              >
+                Logout
+              </Button>
             </div>
+          </CardContent>
+        </Card>
 
-            <div>
-              <h3 className="font-medium text-gray-900 mb-3">Περίληψη Προόδου</h3>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-blue-900">Συνεδρίες που Ολοκληρώθηκαν</span>
-                  <span className="text-sm font-bold text-blue-900">
-                    {mockChild.completedSessions}/{mockChild.totalSessions}
-                  </span>
-                </div>
-                <Progress 
-                  value={(mockChild.completedSessions / mockChild.totalSessions) * 100} 
-                  className="h-2"
-                />
-              </div>
-            </div>
-          </div>
-
-
-
-          {/* Parent/Guardian Contact */}
-          <div>
-            <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-              <User className="w-4 h-4 mr-2 text-blue-500" />
-              Στοιχεία Γονέα/Κηδεμόνα
-            </h3>
-            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-              <div className="flex items-center space-x-3">
-                <User className="w-4 h-4 text-gray-500" />
+        {/* Child Profile Card */}
+        {linkedStudent ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-3">
+                <Avatar className="w-12 h-12">
+                  <AvatarFallback className="bg-blue-100 text-blue-600 text-lg font-semibold">
+                    {linkedStudent.name.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{mockChild.parentContact.name}</p>
-                  <p className="text-xs text-gray-600">Γονέας/Κηδεμόνας</p>
+                  <h2 className="text-xl font-bold text-gray-900">{linkedStudent.name}</h2>
+                  <p className="text-gray-600">Ηλικία {linkedStudent.dateOfBirth ? calculateAge(linkedStudent.dateOfBirth) : linkedStudent.age} ετών</p>
+                  <Badge className={`mt-1 ${
+                    linkedStudent.status === 'active' ? 'bg-green-100 text-green-800' :
+                    linkedStudent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}>
+                    {linkedStudent.status === 'active' ? 'Ενεργός' :
+                     linkedStudent.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
+                  </Badge>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center space-x-3">
-                  <Phone className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-xs text-gray-600">Τηλέφωνο</p>
-                    <p className="text-sm font-medium text-gray-900">{mockChild.parentContact.phone}</p>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Βασικά Στοιχεία</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Θεραπευτής:</span>
+                      <span className="font-medium">Μαριλένα Νέστωρος</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Ημερομηνία εγγραφής:</span>
+                      <span className="font-medium">{new Date(linkedStudent.joinDate).toLocaleDateString('el-GR')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Επόμενη συνεδρία:</span>
+                      <span className="font-medium">
+                        {nextSession ? new Date(nextSession.date).toLocaleDateString('el-GR') : 'Δεν υπάρχει'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Mail className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-xs text-gray-600">Email</p>
-                    <p className="text-sm font-medium text-gray-900">{mockChild.parentContact.email}</p>
+
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Περίληψη Προόδου</h3>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-blue-900">Συνεδρίες που Ολοκληρώθηκαν</span>
+                      <span className="text-sm font-bold text-blue-900">
+                        {calculateStats().completed}/{calculateStats().total}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={calculateStats().percentage} 
+                      className="h-2"
+                    />
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+
+              {/* Parent/Guardian Contact */}
+              <div>
+                <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                  <User className="w-4 h-4 mr-2 text-blue-500" />
+                  Στοιχεία Γονέα/Κηδεμόνα
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <User className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{parentContact.name}</p>
+                      <p className="text-xs text-gray-600">Γονέας/Κηδεμόνας</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="flex items-center space-x-3">
+                      <Phone className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-600">Τηλέφωνο</p>
+                        <p className="text-sm font-medium text-gray-900">{parentContact.phone}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Mail className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-600">Email</p>
+                        <p className="text-sm font-medium text-gray-900">{parentContact.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-gray-600">Φόρτωση στοιχείων...</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
 
   const MessagesTab = () => {
     const [newMessage, setNewMessage] = useState("");
     const [isMobile, setIsMobile] = useState(false);
+    const [sending, setSending] = useState(false);
 
     useEffect(() => {
       const checkIfMobile = () => {
@@ -1271,6 +1733,38 @@ export default function Dashboard() {
       
       return () => window.removeEventListener('resize', checkIfMobile);
     }, []);
+
+    // Send message function (using shared loadMessages from parent)
+    const handleSendMessage = useCallback(async () => {
+      if (!newMessage.trim() || !linkedStudent?.$id || !user?.id) return;
+      
+      try {
+        setSending(true);
+        
+        await databases.createDocument(
+          appwriteConfig.databaseId!,
+          appwriteConfig.collections.messages!,
+          'unique()',
+          {
+            studentId: linkedStudent.$id,
+            senderId: user.id,
+            receiverId: 'admin', // Messages from parent go to admin
+            content: newMessage.trim(),
+            isRead: false,
+            messageType: 'text'
+          }
+        );
+        
+        setNewMessage("");
+        await loadMessages(); // Reload messages to show the new one
+        
+      } catch (error) {
+        console.error('Error sending message:', error);
+        alert('Σφάλμα κατά την αποστολή του μηνύματος. Παρακαλώ δοκιμάστε ξανά.');
+      } finally {
+        setSending(false);
+      }
+    }, [newMessage, linkedStudent?.$id, user?.id, loadMessages]);
 
     const formatTime = (timestamp: string) => {
       const date = new Date(timestamp);
@@ -1312,60 +1806,73 @@ export default function Dashboard() {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">{mockTherapistConversation.therapistName}</h3>
+            <h3 className="font-semibold text-gray-900 truncate">Μαριλένα Νέστωρος</h3>
             <p className="text-sm text-gray-600">Λογοθεραπευτής</p>
           </div>
-          {mockTherapistConversation.unreadCount > 0 && (
+          {unreadCount > 0 && (
             <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">
-              {mockTherapistConversation.unreadCount} νέα
+              {unreadCount} νέα
             </Badge>
           )}
         </div>
 
         {/* Messages Container - Full Screen Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-          {mockTherapistConversation.messages.map((message: {id: string; sender: string; message: string; timestamp: string; isRead: boolean}, index: number) => {
-            const showDate = index === 0 || 
-              new Date(message.timestamp).toDateString() !== 
-              new Date(mockTherapistConversation.messages[index - 1].timestamp).toDateString();
+          {messagesLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Φόρτωση μηνυμάτων...</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="text-center py-8">
+              <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Δεν υπάρχουν μηνύματα</h3>
+              <p className="text-gray-600">Στείλτε το πρώτο σας μήνυμα!</p>
+            </div>
+          ) : (
+            messages.map((message: Message, index: number) => {
+              const showDate = index === 0 || 
+                new Date(message.$createdAt).toDateString() !== 
+                new Date(messages[index - 1].$createdAt).toDateString();
 
-            return (
-              <div key={message.id}>
-                {/* Date separator */}
-                {showDate && (
-                  <div className="flex justify-center mb-4">
-                    <span className="bg-white text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
-                      {formatDate(message.timestamp)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Message bubble */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`flex ${message.sender === 'parent' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-[85%] md:max-w-[70%] ${
-                    message.sender === 'parent' 
-                      ? 'bg-blue-500 text-white rounded-l-2xl rounded-tr-2xl rounded-br-md' 
-                      : 'bg-white text-gray-900 rounded-r-2xl rounded-tl-2xl rounded-bl-md border border-gray-200'
-                  } p-3 shadow-sm`}>
-                    <p className="text-sm leading-relaxed">{message.message}</p>
-                    <div className={`flex items-center justify-end mt-2 space-x-1 ${
-                      message.sender === 'parent' ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
-                      <span className="text-xs">{formatTime(message.timestamp)}</span>
-                      {message.sender === 'parent' && (
-                        <CheckCircle className={`w-3 h-3 ${message.isRead ? 'text-blue-200' : 'text-blue-300'}`} />
-                      )}
+              return (
+                <div key={message.$id}>
+                  {/* Date separator */}
+                  {showDate && (
+                    <div className="flex justify-center mb-4">
+                      <span className="bg-white text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
+                        {formatDate(message.$createdAt)}
+                      </span>
                     </div>
-                  </div>
-                </motion.div>
-              </div>
-            );
-          })}
+                  )}
+
+                  {/* Message bubble */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[85%] md:max-w-[70%] ${
+                      message.senderId === user?.id 
+                        ? 'bg-blue-500 text-white rounded-l-2xl rounded-tr-2xl rounded-br-md' 
+                        : 'bg-white text-gray-900 rounded-r-2xl rounded-tl-2xl rounded-bl-md border border-gray-200'
+                    } p-3 shadow-sm`}>
+                      <p className="text-sm leading-relaxed">{message.content}</p>
+                      <div className={`flex items-center justify-end mt-2 space-x-1 ${
+                        message.senderId === user?.id ? 'text-blue-100' : 'text-gray-500'
+                      }`}>
+                        <span className="text-xs">{formatTime(message.$createdAt)}</span>
+                        {message.senderId === user?.id && (
+                          <CheckCircle className={`w-3 h-3 ${message.isRead ? 'text-blue-200' : 'text-blue-300'}`} />
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              );
+            })
+          )}
           {/* Bottom padding to ensure last message is visible above input */}
           <div className="h-4"></div>
         </div>
@@ -1383,17 +1890,15 @@ export default function Dashboard() {
               />
             </div>
             <Button
-              onClick={() => {
-                if (newMessage.trim()) {
-                  // Here you would send the message
-                  console.log('Sending message:', newMessage);
-                  setNewMessage("");
-                }
-              }}
-              disabled={!newMessage.trim()}
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || sending}
               className="bg-blue-500 hover:bg-blue-600 px-4 h-auto flex-shrink-0"
             >
-              <Send className="w-4 h-4" />
+              {sending ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -1414,8 +1919,98 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', checkMobileMessagesFullscreen);
   }, [activeTab]);
 
+  // Show loading while checking for linked student
+  if (checkingStudent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show client code linking prompt if no student is linked
+  if (!linkedStudent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md"
+        >
+          <div className="text-center mb-8">
+            <motion.div
+              className="w-16 h-16 bg-gradient-to-r from-blue-600 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4"
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Key className="w-8 h-8 text-white" />
+            </motion.div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {user?.name}!</h1>
+            <p className="text-gray-600">Connect to your child's therapy program</p>
+          </div>
+
+          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <CardTitle className="flex items-center justify-center space-x-2 text-xl">
+                <AlertCircle className="w-5 h-5 text-blue-600" />
+                <span>Client Code Required</span>
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex">
+                  <AlertCircle className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-blue-800">
+                      To access your child's therapy sessions and progress, you need to link your account using a <strong>client code</strong> provided by your speech therapist.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-3">
+                <Button
+                  onClick={() => router.push('/link-client-code')}
+                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-orange-600 hover:from-blue-700 hover:to-orange-700 text-white font-medium text-base"
+                >
+                  <Key className="mr-2 w-4 h-4" />
+                  Enter Client Code
+                </Button>
+                
+                <Button
+                  onClick={logout}
+                  variant="outline"
+                  className="w-full h-12"
+                >
+                  Logout
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Don't have a client code?{" "}
+                  <span className="text-blue-600">Contact your speech therapist</span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 relative overflow-hidden">
+      {/* Large Static Glows */}
+      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-blue-200/30 to-transparent rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-[700px] h-[700px] bg-gradient-to-tr from-sky-200/25 to-transparent rounded-full blur-3xl" />
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-cyan-200/20 to-transparent rounded-full blur-3xl" />
+      
+      <div className="relative z-10">
       {/* Session Modal */}
       {SessionModal}
       
@@ -1455,13 +2050,13 @@ export default function Dashboard() {
           
           <div className="flex items-center space-x-3">
             <div className="hidden md:block text-right">
-              <p className="text-sm font-medium text-gray-900">{mockChild.name}</p>
-              <p className="text-xs text-gray-500">Πρόοδος Συνεδριών: {mockChild.completedSessions}/{mockChild.totalSessions}</p>
+              <p className="text-sm font-medium text-gray-900">{linkedStudent?.name || 'Φόρτωση...'}</p>
+              <p className="text-xs text-gray-500">Πρόοδος Συνεδριών: {calculateStats().completed}/{calculateStats().total}</p>
             </div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Avatar className="w-10 h-10 border-2 border-blue-200">
                 <AvatarFallback className="bg-gradient-to-br from-blue-100 to-purple-100 text-blue-700 font-semibold">
-                  {mockChild.name.split(' ').map(n => n[0]).join('')}
+                  {linkedStudent?.name ? linkedStudent.name.split(' ').map(n => n[0]).join('') : 'Φ'}
                 </AvatarFallback>
               </Avatar>
             </motion.div>
@@ -1480,6 +2075,7 @@ export default function Dashboard() {
         >
           <div className="max-w-4xl mx-auto px-4">
             <div className="flex space-x-1">
+
               <button
                 onClick={() => setActiveTab("journey")}
                 className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
@@ -1514,9 +2110,9 @@ export default function Dashboard() {
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Μηνύματα</span>
-                {mockTherapistConversation.unreadCount > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {mockTherapistConversation.unreadCount}
+                    {unreadCount}
                   </span>
                 )}
               </button>
@@ -1548,6 +2144,8 @@ export default function Dashboard() {
         className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200/50 md:hidden shadow-lg z-50"
       >
         <div className="flex items-center justify-around py-3 px-4 max-w-sm mx-auto">
+
+
           <motion.button
             type="button"
             onClick={(e) => {
@@ -1628,6 +2226,25 @@ export default function Dashboard() {
       <div className="hidden md:block">
         {/* Placeholder for desktop sidebar navigation */}
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <FilePreview
+          file={previewFile}
+          isOpen={showFilePreview}
+          onClose={() => { setShowFilePreview(false); setPreviewFile(null); }}
+          onDownload={() => handleFileDownload(previewFile)}
+        />
+      )}
+      </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ParentRoute>
+      <DashboardContent />
+    </ParentRoute>
   );
 }

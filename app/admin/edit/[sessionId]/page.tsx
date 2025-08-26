@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { AdminRoute } from "@/lib/auth-middleware";
+import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
+import { fileService } from "@/lib/fileService";
+import FilePreview from "@/components/FilePreview";
+// import FileUpload from "@/components/FileUpload"; // Unused import
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +46,8 @@ interface SessionData {
   title: string;
   date: string;
   duration: string;
-  status: 'completed' | 'in-progress' | 'scheduled' | 'canceled';
+  status: 'completed' | 'locked' | 'canceled';
+  isPaid: boolean;
   therapistNotes: string;
   sessionSummary: string;
   achievement?: {
@@ -73,6 +79,7 @@ const mockSessionData: SessionData = {
   date: "2024-01-01",
   duration: "45 λεπτά",
   status: "completed",
+  isPaid: true,
   therapistNotes: "Emma showed great enthusiasm during our first session. We completed a comprehensive assessment of her current speech patterns and identified areas for improvement.",
   sessionSummary: "During this initial session, we focused on building rapport and conducting a thorough speech assessment. Emma demonstrated strong listening skills and was eager to participate in all activities.",
   achievement: {
@@ -99,59 +106,328 @@ const mockSessionData: SessionData = {
   ]
 };
 
-export default function SessionEditPage() {
+function SessionEditPageContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
+  const studentId = searchParams.get('studentId');
   
   // Check if this is a new session based on sessionId (timestamp-based IDs are new sessions)
   const isNewSession = sessionId && /^\d{13}$/.test(sessionId); // 13-digit timestamp
   
-  // Use empty data for new sessions, mock data for existing ones
-  const initialSessionData = isNewSession ? {
+  // Use empty data for new sessions, will load real data for existing ones
+  const initialSessionData = {
     id: sessionId,
     studentId: "1",
     sessionNumber: 1,
     title: "",
     date: new Date().toISOString().split('T')[0],
     duration: "45 λεπτά",
-    status: "scheduled" as const,
+    status: "locked" as const,
+    isPaid: false,
     therapistNotes: "",
     sessionSummary: "",
     materials: { pdfs: [], videos: [], images: [] },
     feedback: []
-  } : mockSessionData;
+  };
   
   const [sessionData, setSessionData] = useState<SessionData>(initialSessionData);
-  const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: boolean}>({});
+
   const [newComment, setNewComment] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(!isNewSession);
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [showFilePreview, setShowFilePreview] = useState(false);
 
-  // File upload handler
-  const handleFileUpload = (sessionId: string, fileType: string, files: File[]) => {
-    const uploadKey = `${sessionId}-${fileType}`;
-    setUploadingFiles(prev => ({ ...prev, [uploadKey]: true }));
+  // Load session data from Appwrite if it's an existing session, or initialize new session
+  useEffect(() => {
+    if (!isNewSession && sessionId) {
+      loadSessionData();
+    } else if (isNewSession && studentId) {
+      initializeNewSession();
+    }
+  }, [sessionId, isNewSession, studentId]);
+
+  const initializeNewSession = async () => {
+    try {
+      setLoading(true);
+      
+      // Get the highest session number for this student to calculate next number
+      const existingSessions = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessions,
+        [Query.equal('studentId', studentId), Query.orderDesc('sessionNumber')]
+      );
+      
+      const nextSessionNumber = existingSessions.documents.length > 0 
+        ? (existingSessions.documents[0].sessionNumber || 0) + 1 
+        : 1;
+      
+      console.log(`Initializing new session #${nextSessionNumber} for student:`, studentId);
+      
+      // Update session data with correct studentId and sessionNumber
+      setSessionData(prev => ({
+        ...prev,
+        studentId: studentId,
+        sessionNumber: nextSessionNumber,
+        title: `Συνεδρία ${nextSessionNumber}`
+      }));
+      
+    } catch (error) {
+      console.error('Error initializing new session:', error);
+      alert('Σφάλμα κατά την προετοιμασία νέας συνεδρίας.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSessionData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load session from Appwrite
+      const session = await databases.getDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessions,
+        sessionId
+      );
+
+      // Map database status to UI status
+      const dbToUIStatusMapping = {
+        'completed': 'completed',
+        'available': 'locked', // Default available sessions to locked in UI
+        'locked': 'locked',
+        'cancelled': 'canceled'
+      };
+      
+      const uiStatus = dbToUIStatusMapping[session.status] || 'locked';
+      
+      // Load session files from Appwrite Storage
+      const materials = { pdfs: [], videos: [], images: [] };
+      
+      try {
+        // Get files for this session from storage
+        const files = await storage.listFiles(appwriteConfig.buckets.files);
+        const sessionFiles = files.files.filter(file => 
+          file.name.startsWith(`${session.$id}_`)
+        );
+        
+        // Categorize files by type
+        sessionFiles.forEach(file => {
+          const fileType = file.mimeType || '';
+          const fileData = {
+            id: file.$id,
+            name: file.name.replace(`${session.$id}_`, ''), // Remove session ID prefix from display name
+            size: fileService.formatFileSize(file.sizeOriginal),
+            uploadDate: new Date(file.$createdAt).toLocaleDateString('el-GR'),
+            type: fileType
+          };
+          
+          if (fileType.includes('pdf')) {
+            materials.pdfs.push(fileData);
+          } else if (fileType.includes('image')) {
+            materials.images.push(fileData);
+          } else if (fileType.includes('video')) {
+            materials.videos.push(fileData);
+          }
+        });
+      } catch (error) {
+        console.error('Error loading session files:', error);
+      }
+
+      // Parse JSON fields
+      let achievement = null;
+      let feedback = [];
+      
+      try {
+        if (session.achievement) {
+          achievement = JSON.parse(session.achievement);
+        }
+      } catch (error) {
+        console.error('Error parsing achievement:', error);
+      }
+      
+      try {
+        if (session.feedback) {
+          feedback = JSON.parse(session.feedback);
+        }
+      } catch (error) {
+        console.error('Error parsing feedback:', error);
+      }
+
+      // Convert Appwrite session to UI format
+              const sessionForUI: SessionData = {
+          id: session.$id,
+          studentId: session.studentId,
+          sessionNumber: session.sessionNumber,
+          title: session.title,
+          date: session.date.split('T')[0], // Convert to date only
+          duration: session.duration + ' λεπτά',
+          status: uiStatus, // Use mapped status
+          isPaid: session.isPaid || false,
+          therapistNotes: session.therapistNotes || '',
+          sessionSummary: session.sessionSummary || '',
+          achievement,
+          materials, // Use loaded materials
+          feedback
+        };
+
+      setSessionData(sessionForUI);
+      
+    } catch (error) {
+      console.error('Error loading session:', error);
+      // Fallback to mock data if loading fails
+      setSessionData(mockSessionData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
+  // Handle file preview
+  const handleFilePreview = (file: { $id: string; name: string; type: string }) => {
+    // Create file object with proper URL for preview
+    const fileType = file.type || '';
+    const fileName = file.name || '';
     
-    // Simulate upload
-    setTimeout(() => {
-      setUploadingFiles(prev => ({ ...prev, [uploadKey]: false }));
-    }, 2000);
+    const fileForPreview = {
+      ...file,
+      type: fileType,
+      url: fileService.getFileViewUrl(file.id) // Always use view URL for preview
+    };
+    setPreviewFile(fileForPreview);
+    setShowFilePreview(true);
+  };
+
+  // Handle file download
+  const handleFileDownload = async (file: { $id: string; name: string }) => {
+    try {
+      const downloadUrl = fileService.getFileDownloadUrl(file.id);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Σφάλμα κατά τη λήψη του αρχείου');
+    }
   };
 
   // Delete file handler
-  const handleDeleteFile = (fileType: string, fileId: string) => {
-    // Implement delete logic
-    console.log(`Deleting ${fileType} file:`, fileId);
+  const handleDeleteFile = async (fileType: string, fileId: string) => {
+    try {
+      // Delete from Appwrite storage
+      await fileService.deleteFile(fileId);
+      
+      // Update UI state
+      setSessionData(prev => ({
+        ...prev,
+        materials: {
+          ...prev.materials,
+          [fileType]: prev.materials[fileType].filter(f => f.id !== fileId)
+        }
+      }));
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      alert('Σφάλμα κατά τη διαγραφή του αρχείου');
+    }
+  };
+
+  // Delete comment function
+  const handleDeleteComment = (commentId: string) => {
+    if (window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το σχόλιο;')) {
+      setSessionData(prev => ({
+        ...prev,
+        feedback: prev.feedback.filter(comment => comment.id !== commentId)
+      }));
+    }
   };
 
   // Save session handler
-  const handleSave = () => {
-    setIsSaving(true);
-    // Simulate save
-    setTimeout(() => {
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Keep duration as string (remove ' λεπτά' suffix and convert to just the number as string)
+      const durationString = sessionData.duration.replace(' λεπτά', '');
+      
+      // Map UI status to database status
+      const statusMapping = {
+        'completed': 'completed',
+        'locked': 'available',
+        'canceled': 'cancelled'
+      };
+      
+      const dbStatus = statusMapping[sessionData.status] || 'available';
+      
+      // Prepare data for Appwrite
+      const updateData = {
+        title: sessionData.title,
+        date: sessionData.date + 'T00:00:00.000Z', // Convert back to ISO string
+        duration: durationString, // Keep as string, not number
+        status: dbStatus, // Use mapped status
+        therapistNotes: sessionData.therapistNotes,
+        sessionSummary: sessionData.sessionSummary || '',
+        achievement: sessionData.achievement ? JSON.stringify(sessionData.achievement) : null,
+        feedback: JSON.stringify(sessionData.feedback || []),
+        isPaid: sessionData.isPaid // Use the explicit isPaid value from the form
+      };
+
+      // Debug logging
+      console.log('Saving session data:', {
+        sessionSummary: updateData.sessionSummary,
+        achievement: updateData.achievement,
+        feedback: updateData.feedback,
+        originalSessionData: {
+          sessionSummary: sessionData.sessionSummary,
+          achievement: sessionData.achievement,
+          feedback: sessionData.feedback
+        }
+      });
+
+      let finalSessionId = sessionId;
+      
+      if (isNewSession) {
+        // Create new session with auto-generated unique ID
+        const newSession = await databases.createDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.collections.sessions,
+          'unique()', // Let Appwrite generate unique ID
+          {
+            ...updateData,
+            studentId: sessionData.studentId,
+            sessionNumber: sessionData.sessionNumber
+          }
+        );
+        
+        // Update the sessionId to the newly created session's ID
+        finalSessionId = newSession.$id;
+        console.log('✅ Successfully created new session:', finalSessionId);
+      } else {
+        // Update existing session
+        await databases.updateDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.collections.sessions,
+          sessionId,
+          updateData
+        );
+        console.log('✅ Successfully updated session:', sessionId);
+      }
+      
+      // Success - redirect back to admin with student selected
+      const redirectUrl = studentId ? `/admin?studentId=${studentId}` : '/admin';
+      router.push(redirectUrl);
+      
+    } catch (error) {
+      console.error('Error saving session:', error);
+      alert('Σφάλμα κατά την αποθήκευση της συνεδρίας. Παρακαλώ δοκιμάστε ξανά.');
+    } finally {
       setIsSaving(false);
-      router.push('/admin');
-    }, 1000);
+    }
   };
 
   return (
@@ -163,7 +439,10 @@ export default function SessionEditPage() {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => router.push('/admin')}
+              onClick={() => {
+                const redirectUrl = studentId ? `/admin?studentId=${studentId}` : '/admin';
+                router.push(redirectUrl);
+              }}
               className="hover:bg-gray-100"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -191,8 +470,19 @@ export default function SessionEditPage() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="max-w-4xl mx-auto p-4 flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Φόρτωση συνεδρίας...</p>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-4 space-y-6 overflow-x-hidden">
+      {!loading && (
+        <div className="max-w-4xl mx-auto p-4 space-y-6 overflow-x-hidden">
         
         {/* Session Overview Card */}
         <Card>
@@ -203,12 +493,12 @@ export default function SessionEditPage() {
                 <Badge 
                   className={`${
                     sessionData.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    sessionData.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                    sessionData.status === 'canceled' ? 'bg-red-100 text-red-800' :
                     'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {sessionData.status === 'completed' ? 'Ολοκληρωμένη' :
-                   sessionData.status === 'in-progress' ? 'Σε εξέλιξη' : 'Προγραμματισμένη'}
+                  {sessionData.status === 'completed' ? 'Ολοκληρωμένη ✓' :
+                   sessionData.status === 'canceled' ? 'Ακυρωμένη ✕' : 'Κλειδωμένη 🔒'}
                 </Badge>
               </div>
               
@@ -245,14 +535,33 @@ export default function SessionEditPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Κατάσταση</label>
                   <select 
                     value={sessionData.status}
-                    onChange={(e) => setSessionData({...sessionData, status: e.target.value as 'completed' | 'in-progress' | 'scheduled' | 'canceled'})}
+                    onChange={(e) => setSessionData({...sessionData, status: e.target.value as 'completed' | 'locked' | 'canceled'})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="scheduled">Προγραμματισμένη</option>
-                    <option value="in-progress">Σε εξέλιξη</option>
-                    <option value="completed">Ολοκληρωμένη</option>
-                    <option value="canceled">Ακυρωμένη</option>
+                    <option value="locked">🔒 Κλειδωμένη</option>
+                    <option value="completed">✓ Ολοκληρωμένη</option>
+                    <option value="canceled">✕ Ακυρωμένη</option>
                   </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Κατάσταση Πληρωμής</label>
+                  <div className="flex items-center space-x-3 h-10">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sessionData.isPaid}
+                        onChange={(e) => setSessionData({...sessionData, isPaid: e.target.checked})}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className={`ml-2 text-sm font-medium ${sessionData.isPaid ? 'text-green-700' : 'text-gray-700'}`}>
+                        {sessionData.isPaid ? 'Πληρωμένη ✓' : 'Απλήρωτη'}
+                      </span>
+                    </label>
+                    <Badge className={`${sessionData.isPaid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {sessionData.isPaid ? 'ΠΛΗΡΩΜΕΝΗ' : 'ΑΠΛΗΡΩΤΗ'}
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </div>
@@ -394,6 +703,8 @@ export default function SessionEditPage() {
                 Υλικό Συνεδρίας
               </h2>
 
+
+
               {/* PDF Files */}
               <div className="space-y-4">
                 <div className="space-y-3">
@@ -409,10 +720,34 @@ export default function SessionEditPage() {
                       const input = document.createElement('input');
                       input.type = 'file';
                       input.multiple = true;
-                      input.accept = '.pdf';
-                      input.onchange = (e) => {
+                      input.accept = '.pdf,application/pdf';
+                      input.onchange = async (e) => {
                         const files = Array.from((e.target as HTMLInputElement).files || []);
-                        if (files.length) handleFileUpload(sessionData.id, 'pdfs', files);
+                        if (files.length) {
+                          try {
+                            for (const file of files) {
+                              if (file.type === 'application/pdf') {
+                                const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+                                setSessionData(prev => ({
+                                  ...prev,
+                                  materials: {
+                                    ...prev.materials,
+                                    pdfs: [...prev.materials.pdfs, {
+                                      id: uploadedFile.id,
+                                      name: uploadedFile.name,
+                                      size: fileService.formatFileSize(uploadedFile.size),
+                                      uploadDate: new Date().toLocaleDateString('el-GR'),
+                                      type: 'pdf'
+                                    }]
+                                  }
+                                }));
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error uploading PDF:', error);
+                            alert(`Σφάλμα κατά τη μεταφόρτωση του PDF: ${error.message}`);
+                          }
+                        }
                       };
                       input.click();
                     }}
@@ -438,11 +773,21 @@ export default function SessionEditPage() {
                         </div>
                       </div>
                       <div className="flex flex-col md:flex-row gap-2 flex-shrink-0">
-                        <Button size="sm" variant="outline" className="w-full md:w-auto text-xs h-9 px-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full md:w-auto text-xs h-9 px-3"
+                          onClick={() => handleFilePreview(file)}
+                        >
                           <Eye className="w-3 h-3 mr-1" />
                           <span>Προβολή</span>
                         </Button>
-                        <Button size="sm" variant="outline" className="w-full md:w-auto text-xs h-9 px-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full md:w-auto text-xs h-9 px-3"
+                          onClick={() => handleFileDownload(file)}
+                        >
                           <Download className="w-3 h-3 mr-1" />
                           <span>Λήψη</span>
                         </Button>
@@ -459,16 +804,9 @@ export default function SessionEditPage() {
                     </div>
                   ))}
 
-                  {uploadingFiles[`${sessionData.id}-pdfs`] && (
-                    <div className="flex items-center justify-center p-8 border-2 border-dashed border-red-300 rounded-lg">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-2"></div>
-                        <p className="text-sm text-red-600">Μεταφόρτωση PDF...</p>
-                      </div>
-                    </div>
-                  )}
 
-                  {sessionData.materials.pdfs.length === 0 && !uploadingFiles[`${sessionData.id}-pdfs`] && (
+
+                  {sessionData.materials.pdfs.length === 0 && (
                     <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
                       <FileText className="w-16 h-16 text-red-300 mx-auto mb-4" />
                       <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν έγγραφα PDF</p>
@@ -493,10 +831,34 @@ export default function SessionEditPage() {
                       const input = document.createElement('input');
                       input.type = 'file';
                       input.multiple = true;
-                      input.accept = 'video/*';
-                      input.onchange = (e) => {
+                      input.accept = '.mp4,.mov,.avi,.mkv,.wmv,.flv,video/mp4,video/quicktime,video/x-msvideo';
+                      input.onchange = async (e) => {
                         const files = Array.from((e.target as HTMLInputElement).files || []);
-                        if (files.length) handleFileUpload(sessionData.id, 'videos', files);
+                        if (files.length) {
+                          try {
+                            for (const file of files) {
+                              if (file.type.startsWith('video/')) {
+                                const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+                                setSessionData(prev => ({
+                                  ...prev,
+                                  materials: {
+                                    ...prev.materials,
+                                    videos: [...prev.materials.videos, {
+                                      id: uploadedFile.id,
+                                      name: uploadedFile.name,
+                                      size: fileService.formatFileSize(uploadedFile.size),
+                                      uploadDate: new Date().toLocaleDateString('el-GR'),
+                                      type: 'video'
+                                    }]
+                                  }
+                                }));
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error uploading videos:', error);
+                            alert(`Σφάλμα κατά τη μεταφόρτωση των βίντεο: ${error.message}`);
+                          }
+                        }
                       };
                       input.click();
                     }}
@@ -522,11 +884,21 @@ export default function SessionEditPage() {
                         </div>
                       </div>
                       <div className="flex flex-col md:flex-row gap-2 flex-shrink-0">
-                        <Button size="sm" variant="outline" className="w-full md:w-auto text-xs h-9 px-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full md:w-auto text-xs h-9 px-3"
+                          onClick={() => handleFilePreview(file)}
+                        >
                           <PlayCircle className="w-3 h-3 mr-1" />
                           <span>Αναπαραγωγή</span>
                         </Button>
-                        <Button size="sm" variant="outline" className="w-full md:w-auto text-xs h-9 px-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full md:w-auto text-xs h-9 px-3"
+                          onClick={() => handleFileDownload(file)}
+                        >
                           <Download className="w-3 h-3 mr-1" />
                           <span>Λήψη</span>
                         </Button>
@@ -543,16 +915,9 @@ export default function SessionEditPage() {
                     </div>
                   ))}
 
-                  {uploadingFiles[`${sessionData.id}-videos`] && (
-                    <div className="flex items-center justify-center p-8 border-2 border-dashed border-purple-300 rounded-lg">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
-                        <p className="text-sm text-purple-600">Μεταφόρτωση βίντεο...</p>
-                      </div>
-                    </div>
-                  )}
 
-                  {sessionData.materials.videos.length === 0 && !uploadingFiles[`${sessionData.id}-videos`] && (
+
+                  {sessionData.materials.videos.length === 0 && (
                     <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
                       <Video className="w-16 h-16 text-purple-300 mx-auto mb-4" />
                       <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν βίντεο</p>
@@ -577,10 +942,34 @@ export default function SessionEditPage() {
                       const input = document.createElement('input');
                       input.type = 'file';
                       input.multiple = true;
-                      input.accept = 'image/*';
-                      input.onchange = (e) => {
+                      input.accept = '.jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp';
+                      input.onchange = async (e) => {
                         const files = Array.from((e.target as HTMLInputElement).files || []);
-                        if (files.length) handleFileUpload(sessionData.id, 'images', files);
+                        if (files.length) {
+                          try {
+                            for (const file of files) {
+                              if (file.type.startsWith('image/')) {
+                                const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+                                setSessionData(prev => ({
+                                  ...prev,
+                                  materials: {
+                                    ...prev.materials,
+                                    images: [...prev.materials.images, {
+                                      id: uploadedFile.id,
+                                      name: uploadedFile.name,
+                                      size: fileService.formatFileSize(uploadedFile.size),
+                                      uploadDate: new Date().toLocaleDateString('el-GR'),
+                                      type: 'image'
+                                    }]
+                                  }
+                                }));
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error uploading images:', error);
+                            alert(`Σφάλμα κατά τη μεταφόρτωση των εικόνων: ${error.message}`);
+                          }
+                        }
                       };
                       input.click();
                     }}
@@ -606,11 +995,21 @@ export default function SessionEditPage() {
                         </div>
                       </div>
                       <div className="flex flex-col md:flex-row gap-2 flex-shrink-0">
-                        <Button size="sm" variant="outline" className="w-full md:w-auto text-xs h-9 px-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full md:w-auto text-xs h-9 px-3"
+                          onClick={() => handleFilePreview(file)}
+                        >
                           <Eye className="w-3 h-3 mr-1" />
                           <span>Προβολή</span>
                         </Button>
-                        <Button size="sm" variant="outline" className="w-full md:w-auto text-xs h-9 px-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full md:w-auto text-xs h-9 px-3"
+                          onClick={() => handleFileDownload(file)}
+                        >
                           <Download className="w-3 h-3 mr-1" />
                           <span>Λήψη</span>
                         </Button>
@@ -627,16 +1026,9 @@ export default function SessionEditPage() {
                     </div>
                   ))}
 
-                  {uploadingFiles[`${sessionData.id}-images`] && (
-                    <div className="flex items-center justify-center p-8 border-2 border-dashed border-blue-300 rounded-lg">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                        <p className="text-sm text-blue-600">Μεταφόρτωση εικόνων...</p>
-                      </div>
-                    </div>
-                  )}
 
-                  {sessionData.materials.images.length === 0 && !uploadingFiles[`${sessionData.id}-images`] && (
+
+                  {sessionData.materials.images.length === 0 && (
                     <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
                       <ImageIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
                       <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν εικόνες</p>
@@ -666,12 +1058,23 @@ export default function SessionEditPage() {
                         <User className="w-4 h-4 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {comment.author === "parent" ? "Γονέας" : "Θεραπευτής"}
-                            </span>
-                            <span className="text-xs text-gray-500">{comment.timestamp}</span>
+                        <div className="bg-gray-50 rounded-lg p-4 group hover:bg-gray-100 transition-colors relative">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {comment.author === "parent" ? "Γονέας" : "Θεραπευτής"}
+                              </span>
+                              <span className="text-xs text-gray-500">{comment.timestamp}</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              title="Διαγραφή σχολίου"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                           <p className="text-gray-700 text-sm leading-relaxed">{comment.message}</p>
                         </div>
@@ -706,8 +1109,22 @@ export default function SessionEditPage() {
                         disabled={!newComment.trim()}
                         className="bg-blue-500 hover:bg-blue-600"
                         onClick={() => {
-                          // Add comment logic
-                          setNewComment("");
+                          if (newComment.trim()) {
+                            const newFeedback = {
+                              id: Date.now().toString(),
+                              author: "therapist",
+                              message: newComment.trim(),
+                              timestamp: new Date().toLocaleString('el-GR'),
+                              isRead: false
+                            };
+                            
+                            setSessionData({
+                              ...sessionData,
+                              feedback: [...sessionData.feedback, newFeedback]
+                            });
+                            
+                            setNewComment("");
+                          }
                         }}
                       >
                         <Send className="w-4 h-4 mr-2" />
@@ -721,8 +1138,29 @@ export default function SessionEditPage() {
           </Card>
         )}
 
-
       </div>
+      )}
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <FilePreview
+          file={previewFile}
+          isOpen={showFilePreview}
+          onClose={() => {
+            setShowFilePreview(false);
+            setPreviewFile(null);
+          }}
+          onDownload={() => handleFileDownload(previewFile)}
+        />
+      )}
     </div>
+  );
+}
+
+export default function SessionEditPage() {
+  return (
+    <AdminRoute>
+      <SessionEditPageContent />
+    </AdminRoute>
   );
 }

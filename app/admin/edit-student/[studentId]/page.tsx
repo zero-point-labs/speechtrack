@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { AdminRoute } from "@/lib/auth-middleware";
+import { databases, appwriteConfig } from "@/lib/appwrite.client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,67 +16,52 @@ import {
   Calendar
 } from "lucide-react";
 
-// Interface for Student
+// Interface for Student (matching Appwrite structure)
 interface Student {
-  id: string;
+  $id: string;
   name: string;
   age: number;
-  photo: string;
+  dateOfBirth?: string;
   joinDate: string;
   status: 'active' | 'inactive' | 'completed';
-  sessionsCompleted: number;
-  totalSessions: number;
-  nextSession?: string;
-  therapist: string;
-  diagnosis: string[];
-  parentContact: {
+  parentContact: string | {
     name: string;
     phone: string;
     email: string;
   };
 }
 
-// Mock data for students (this would normally come from a database)
-const mockStudents: Student[] = [
-  {
-    id: "1",
-    name: "Emma Παπαδόπουλου",
-    age: 7,
-    photo: "/api/placeholder/100/100",
-    joinDate: "2024-01-15",
-    status: "active",
-    sessionsCompleted: 2,
-    totalSessions: 12,
-    nextSession: "2024-01-29",
-    therapist: "Μαριλένα Νέστωρος", 
-    diagnosis: ["Δυσαρθρία", "Καθυστέρηση Ομιλίας"],
-    parentContact: {
-      name: "Αννα Παπαδοπούλου",
-      phone: "+30 697 123 4567",
-      email: "anna.papa@email.com"
-    }
-  },
-  {
-    id: "2",
-    name: "Νίκος Γεωργίου",
-    age: 5,
-    photo: "/api/placeholder/100/100",
-    joinDate: "2024-01-20",
-    status: "active",
-    sessionsCompleted: 1,
-    totalSessions: 8,
-    nextSession: "2024-02-01",
-    therapist: "Μαριλένα Νέστωρος",
-    diagnosis: ["Τραυλισμός"],
-    parentContact: {
-      name: "Πέτρος Γεωργίου",
-      phone: "+30 697 987 6543",
-      email: "petros.geo@email.com"
-    }
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth: string): number => {
+  if (!dateOfBirth) return 0;
+  
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
   }
-];
+  
+  return age;
+};
 
-export default function EditStudentPage() {
+// Helper function to parse parent contact
+const parseParentContact = (parentContactString: string | object) => {
+  if (typeof parentContactString === 'object') {
+    return parentContactString;
+  }
+  
+  try {
+    return JSON.parse(parentContactString);
+  } catch (error) {
+    console.error('Error parsing parent contact:', error);
+    return { name: '', phone: '', email: '' };
+  }
+};
+
+function EditStudentPageContent() {
   const router = useRouter();
   const params = useParams();
   const studentId = params.studentId as string;
@@ -83,16 +70,34 @@ export default function EditStudentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load student data
+  // Load student data from Appwrite
   useEffect(() => {
     if (studentId) {
-      const student = mockStudents.find(s => s.id === studentId);
-      if (student) {
-        setStudentData(student);
-      }
-      setIsLoading(false);
+      loadStudentData();
     }
   }, [studentId]);
+
+  const loadStudentData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load student from Appwrite
+      const student = await databases.getDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.students,
+        studentId
+      );
+      
+      console.log('Loaded student data:', student);
+      setStudentData(student as Student);
+      
+    } catch (error) {
+      console.error('Error loading student data:', error);
+      setStudentData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Event handlers
   const handleBackToAdmin = useCallback(() => {
@@ -104,14 +109,40 @@ export default function EditStudentPage() {
     
     setIsSaving(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('Saving student data:', studentData);
-    
-    setIsSaving(false);
-    router.push('/admin');
-  }, [studentData, router]);
+    try {
+      // Prepare data for Appwrite
+      const updateData = {
+        name: studentData.name,
+        age: studentData.dateOfBirth ? calculateAge(studentData.dateOfBirth) : studentData.age,
+        status: studentData.status,
+        parentContact: typeof studentData.parentContact === 'string' 
+          ? studentData.parentContact 
+          : JSON.stringify(studentData.parentContact)
+      };
+
+      // Only add dateOfBirth if it exists (for backward compatibility)
+      if (studentData.dateOfBirth) {
+        updateData.dateOfBirth = studentData.dateOfBirth;
+      }
+      
+      // Update student in Appwrite
+      await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.students,
+        studentId,
+        updateData
+      );
+      
+      console.log('✅ Successfully updated student:', studentData.name);
+      router.push('/admin');
+      
+    } catch (error) {
+      console.error('Error saving student data:', error);
+      alert('Σφάλμα κατά την αποθήκευση των στοιχείων. Παρακαλώ δοκιμάστε ξανά.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [studentData, router, studentId]);
 
   const handleStudentChange = useCallback((field: keyof Student, value: string | number | 'active' | 'inactive' | 'completed') => {
     if (!studentData) return;
@@ -122,13 +153,15 @@ export default function EditStudentPage() {
     } : null);
   }, [studentData]);
 
-  const handleParentContactChange = useCallback((field: keyof Student['parentContact'], value: string) => {
+  const handleParentContactChange = useCallback((field: string, value: string) => {
     if (!studentData) return;
+    
+    const currentContact = parseParentContact(studentData.parentContact);
     
     setStudentData(prev => prev ? {
       ...prev,
       parentContact: {
-        ...prev.parentContact,
+        ...currentContact,
         [field]: value
       }
     } : null);
@@ -229,15 +262,20 @@ export default function EditStudentPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ηλικία *
+                  Ημερομηνία Γέννησης *
                 </label>
                 <Input
-                  type="number"
-                  value={studentData.age}
-                  onChange={(e) => handleStudentChange('age', parseInt(e.target.value) || 0)}
+                  type="date"
+                  value={studentData.dateOfBirth || ''}
+                  onChange={(e) => handleStudentChange('dateOfBirth', e.target.value)}
                   className="w-full"
-                  placeholder="Εισάγετε την ηλικία"
+                  max={new Date().toISOString().split('T')[0]} // Prevent future dates
                 />
+                {studentData.dateOfBirth && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Ηλικία: {calculateAge(studentData.dateOfBirth)} ετών
+                  </p>
+                )}
               </div>
               
 
@@ -277,7 +315,7 @@ export default function EditStudentPage() {
                   Όνομα Γονέα *
                 </label>
                 <Input
-                  value={studentData.parentContact.name}
+                  value={parseParentContact(studentData.parentContact).name}
                   onChange={(e) => handleParentContactChange('name', e.target.value)}
                   className="w-full"
                   placeholder="Όνομα γονέα/κηδεμόνα"
@@ -289,7 +327,7 @@ export default function EditStudentPage() {
                   Τηλέφωνο
                 </label>
                 <Input
-                  value={studentData.parentContact.phone}
+                  value={parseParentContact(studentData.parentContact).phone}
                   onChange={(e) => handleParentContactChange('phone', e.target.value)}
                   className="w-full"
                   placeholder="+30 xxx xxx xxxx"
@@ -302,7 +340,7 @@ export default function EditStudentPage() {
                 </label>
                 <Input
                   type="email"
-                  value={studentData.parentContact.email}
+                  value={parseParentContact(studentData.parentContact).email}
                   onChange={(e) => handleParentContactChange('email', e.target.value)}
                   className="w-full"
                   placeholder="email@example.com"
@@ -356,5 +394,13 @@ export default function EditStudentPage() {
         <div className="h-8"></div>
       </div>
     </div>
+  );
+}
+
+export default function EditStudentPage() {
+  return (
+    <AdminRoute>
+      <EditStudentPageContent />
+    </AdminRoute>
   );
 }

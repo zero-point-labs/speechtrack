@@ -6,12 +6,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { databases, appwriteConfig } from "@/lib/appwrite.client";
+import { AdminRoute } from "@/lib/auth-middleware";
 import { 
   ArrowLeft, 
   Save, 
   User,
   Calendar,
-  Clock
+  Clock,
+  Copy,
+  CheckCircle
 } from "lucide-react";
 
 // Session template interface
@@ -24,13 +28,38 @@ interface SessionTemplate {
 // Form data interface
 interface StudentFormData {
   name: string;
-  age: number;
-  birthday: string;
+  dateOfBirth: string;
+  parentName: string;
+  parentEmail: string;
+  parentPhone: string;
   sessionSetup: {
     totalWeeks: number;
     sessionsPerWeek: number;
     sessionTemplates: SessionTemplate[];
   };
+}
+
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth: string): number => {
+  if (!dateOfBirth) return 0;
+  
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};
+
+// Success state interface
+interface CreatedStudent {
+  id: string;
+  name: string;
+  clientCode: string;
 }
 
 const DAYS_OF_WEEK = [
@@ -45,13 +74,17 @@ const DAYS_OF_WEEK = [
 
 const DURATION_OPTIONS = [30, 45, 60, 90];
 
-export default function CreateStudentPage() {
+function CreateStudentForm() {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
+  const [createdStudent, setCreatedStudent] = useState<CreatedStudent | null>(null);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState<StudentFormData>({
     name: "",
-    age: 5,
-    birthday: "",
+    dateOfBirth: "",
+    parentName: "",
+    parentEmail: "",
+    parentPhone: "",
     sessionSetup: {
       totalWeeks: 12,
       sessionsPerWeek: 1,
@@ -68,13 +101,20 @@ export default function CreateStudentPage() {
     setFormData(prev => ({ ...prev, name: e.target.value }));
   }, []);
 
-  const handleAgeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const age = parseInt(e.target.value) || 5;
-    setFormData(prev => ({ ...prev, age }));
+  const handleDateOfBirthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }));
   }, []);
 
-  const handleBirthdayChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, birthday: e.target.value }));
+  const handleParentNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, parentName: e.target.value }));
+  }, []);
+
+  const handleParentEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, parentEmail: e.target.value }));
+  }, []);
+
+  const handleParentPhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, parentPhone: e.target.value }));
   }, []);
 
   // Handle session setup changes
@@ -131,27 +171,232 @@ export default function CreateStudentPage() {
     }));
   }, []);
 
+  // Generate client code
+  const generateClientCode = () => {
+    return Math.random().toString(36).substring(2, 10).toUpperCase();
+  };
+
   // Handle form submission
   const handleSave = useCallback(async () => {
+    // Validation
     if (!formData.name.trim()) {
-      alert('Παρακαλώ εισάγετε το όνομα του μαθητή');
+      setError('Παρακαλώ εισάγετε το όνομα του μαθητή');
+      return;
+    }
+
+    if (!formData.dateOfBirth) {
+      setError('Παρακαλώ εισάγετε την ημερομηνία γέννησης');
+      return;
+    }
+
+    const age = calculateAge(formData.dateOfBirth);
+    if (age < 2 || age > 18) {
+      setError('Η ηλικία του μαθητή πρέπει να είναι μεταξύ 2 και 18 ετών');
+      return;
+    }
+
+    if (!formData.parentName.trim()) {
+      setError('Παρακαλώ εισάγετε το όνομα του γονέα');
+      return;
+    }
+
+    if (!formData.parentEmail.trim()) {
+      setError('Παρακαλώ εισάγετε το email του γονέα');
       return;
     }
 
     setIsSaving(true);
+    setError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('Creating student with data:', formData);
-    
-    setIsSaving(false);
-    router.push('/admin');
-  }, [formData, router]);
+    try {
+      // Generate client code
+      const clientCode = generateClientCode();
+      
+      // Create student in Appwrite
+      const student = await databases.createDocument(
+        appwriteConfig.databaseId!,
+        appwriteConfig.collections.students!,
+        'unique()',
+        {
+          name: formData.name.trim(),
+          age: calculateAge(formData.dateOfBirth),
+          dateOfBirth: formData.dateOfBirth,
+          totalSessions: formData.sessionSetup.totalWeeks * formData.sessionSetup.sessionsPerWeek,
+          completedSessions: 0,
+          status: 'active',
+          clientCode: clientCode,
+          joinDate: new Date().toISOString(),
+          parentContact: JSON.stringify({
+            name: formData.parentName.trim(),
+            email: formData.parentEmail.trim(),
+            phone: formData.parentPhone.trim()
+          })
+        }
+      );
+
+      if (!student.$id) {
+        throw new Error('Failed to create student - no ID returned');
+      }
+
+      // Create client code document
+      await databases.createDocument(
+        appwriteConfig.databaseId!,
+        appwriteConfig.collections.clientCodes!,
+        'unique()',
+        {
+          code: clientCode,
+          studentId: student.$id!,
+          isUsed: false
+        }
+      );
+
+      // Create initial sessions based on templates
+      const sessions = [];
+      const startDate = new Date();
+      
+      for (let week = 0; week < formData.sessionSetup.totalWeeks; week++) {
+        for (let sessionIndex = 0; sessionIndex < formData.sessionSetup.sessionsPerWeek; sessionIndex++) {
+          const template = formData.sessionSetup.sessionTemplates[sessionIndex];
+          const sessionDate = new Date(startDate);
+          sessionDate.setDate(startDate.getDate() + (week * 7));
+          
+          sessions.push({
+            studentId: student.$id!,
+            sessionNumber: (week * formData.sessionSetup.sessionsPerWeek) + sessionIndex + 1,
+            title: `Συνεδρία ${(week * formData.sessionSetup.sessionsPerWeek) + sessionIndex + 1}`,
+            description: '',
+            date: sessionDate.toISOString(),
+            duration: template.duration.toString(),
+            status: sessionIndex === 0 && week === 0 ? 'available' : 'locked',
+            isPaid: false
+          });
+        }
+      }
+
+      // Create all sessions
+      console.log(`Creating ${sessions.length} sessions for student ${student.name}...`);
+      for (let i = 0; i < sessions.length; i++) {
+        const sessionData = sessions[i];
+        await databases.createDocument(
+          appwriteConfig.databaseId!,
+          appwriteConfig.collections.sessions!,
+          'unique()',
+          sessionData
+        );
+        
+        // Log progress for large batches
+        if (sessions.length > 10 && (i + 1) % 10 === 0) {
+          console.log(`Created ${i + 1}/${sessions.length} sessions...`);
+        }
+      }
+      console.log(`✅ Successfully created all ${sessions.length} sessions!`);
+
+      // Success! Show the client code
+      setCreatedStudent({
+        id: student.$id!,
+        name: student.name,
+        clientCode: clientCode
+      });
+      
+    } catch (error: unknown) {
+      console.error('Error creating student:', error);
+      setError(error instanceof Error ? error.message : 'Σφάλμα κατά τη δημιουργία του μαθητή');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [formData]);
 
   const handleCancel = useCallback(() => {
     router.push('/admin');
   }, [router]);
+
+  const handleCopyCode = useCallback(() => {
+    if (createdStudent) {
+      navigator.clipboard.writeText(createdStudent.clientCode);
+    }
+  }, [createdStudent]);
+
+  const handleCreateAnother = useCallback(() => {
+    setCreatedStudent(null);
+    setError('');
+    setFormData({
+      name: "",
+      dateOfBirth: "",
+      parentName: "",
+      parentEmail: "",
+      parentPhone: "",
+      sessionSetup: {
+        totalWeeks: 12,
+        sessionsPerWeek: 1,
+        sessionTemplates: [{
+          dayOfWeek: 'monday',
+          time: '10:00',
+          duration: 45
+        }]
+      }
+    });
+  }, []);
+
+  // Success view
+  if (createdStudent) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <div className="mb-6">
+              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Επιτυχία!</h1>
+              <p className="text-gray-600">Ο μαθητής δημιουργήθηκε επιτυχώς</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-2">Στοιχεία Μαθητή</h3>
+                <p className="text-blue-800"><strong>Όνομα:</strong> {createdStudent.name}</p>
+                <p className="text-blue-800"><strong>ID:</strong> {createdStudent.id}</p>
+              </div>
+
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 className="font-semibold text-green-900 mb-2">Client Code</h3>
+                <div className="flex items-center justify-between bg-white p-3 rounded border">
+                  <span className="font-mono text-lg font-bold text-green-800">
+                    {createdStudent.clientCode}
+                  </span>
+                  <Button
+                    onClick={handleCopyCode}
+                    variant="outline"
+                    size="sm"
+                    className="ml-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-sm text-green-700 mt-2">
+                  Δώστε αυτόν τον κωδικό στον γονέα για να δημιουργήσει λογαριασμό
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <Button
+                onClick={handleCreateAnother}
+                variant="outline"
+                className="flex-1"
+              >
+                Νέος Μαθητής
+              </Button>
+              <Button
+                onClick={() => router.push('/admin')}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                Επιστροφή
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -174,7 +419,7 @@ export default function CreateStudentPage() {
           </div>
           <Button 
             onClick={handleSave}
-            disabled={isSaving || !formData.name.trim()}
+            disabled={isSaving || !formData.name.trim() || !formData.dateOfBirth || !formData.parentName.trim() || !formData.parentEmail.trim()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
           >
             {isSaving ? (
@@ -217,26 +462,77 @@ export default function CreateStudentPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ηλικία *
+                    Ημερομηνία Γέννησης *
                   </label>
                   <Input
-                    type="number"
-                    min="3"
-                    max="18"
-                    value={formData.age}
-                    onChange={handleAgeChange}
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={handleDateOfBirthChange}
+                    className="w-full"
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                  />
+                  {formData.dateOfBirth && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Ηλικία: {calculateAge(formData.dateOfBirth)} ετών
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Parent Contact Card */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                <User className="w-6 h-6 mr-3 text-green-600" />
+                Στοιχεία Γονέα
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Όνομα Γονέα *
+                  </label>
+                  <Input
+                    value={formData.parentName}
+                    onChange={handleParentNameChange}
+                    placeholder="Εισάγετε το όνομα του γονέα"
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Γονέα *
+                  </label>
+                  <Input
+                    type="email"
+                    value={formData.parentEmail}
+                    onChange={handleParentEmailChange}
+                    placeholder="Εισάγετε το email του γονέα"
                     className="w-full"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ημερομηνία Γέννησης
+                    Τηλέφωνο Γονέα
                   </label>
                   <Input
-                    type="date"
-                    value={formData.birthday}
-                    onChange={handleBirthdayChange}
+                    type="tel"
+                    value={formData.parentPhone}
+                    onChange={handleParentPhoneChange}
+                    placeholder="Εισάγετε το τηλέφωνο του γονέα"
                     className="w-full"
                   />
                 </div>
@@ -388,5 +684,13 @@ export default function CreateStudentPage() {
         <div className="h-8"></div>
       </div>
     </div>
+  );
+}
+
+export default function CreateStudentPage() {
+  return (
+    <AdminRoute>
+      <CreateStudentForm />
+    </AdminRoute>
   );
 }
