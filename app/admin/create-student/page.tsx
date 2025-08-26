@@ -219,7 +219,6 @@ function CreateStudentForm() {
         'unique()',
         {
           name: formData.name.trim(),
-          age: calculateAge(formData.dateOfBirth),
           dateOfBirth: formData.dateOfBirth,
           totalSessions: formData.sessionSetup.totalWeeks * formData.sessionSetup.sessionsPerWeek,
           completedSessions: 0,
