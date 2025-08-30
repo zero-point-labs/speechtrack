@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: ""
   });
@@ -25,8 +26,27 @@ export default function SignupPage() {
   // Check if already authenticated
   useEffect(() => {
     const checkAuth = async () => {
-      if (await auth.isAuthenticated()) {
-        router.push("/dashboard");
+      console.log('🔍 Signup page: Checking authentication...');
+      try {
+        const isAuth = await auth.isAuthenticated();
+        console.log('🔍 Authentication status:', isAuth);
+        
+        if (isAuth) {
+          const session = await auth.getSession();
+          console.log('🔍 User session:', session);
+          
+          if (session?.isAdmin) {
+            console.log('🔀 Redirecting admin to /admin');
+            router.push("/admin");
+          } else {
+            console.log('🔀 Redirecting parent to /dashboard');
+            router.push("/dashboard");
+          }
+        } else {
+          console.log('✅ User not authenticated - showing signup form');
+        }
+      } catch (error) {
+        console.error('❌ Auth check error:', error);
       }
     };
     checkAuth();
@@ -42,22 +62,34 @@ export default function SignupPage() {
     
     // Validation
     if (!formData.name.trim()) {
-      setError("Please enter your full name");
+      setError("Παρακαλώ εισάγετε το πλήρες όνομά σας");
       return;
     }
 
     if (!formData.email.trim()) {
-      setError("Please enter your email address");
+      setError("Παρακαλώ εισάγετε τη διεύθυνση email σας");
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      setError("Παρακαλώ εισάγετε τον αριθμό τηλεφώνου σας");
+      return;
+    }
+
+    // Basic phone validation (Greek and Cypriot phone numbers)
+    const phoneRegex = /^(69\d{8}|21\d{8}|22\d{8}|23\d{8}|24\d{8}|25\d{8}|26\d{8}|27\d{8}|28\d{8}|9[5-79]\d{6}|357\d{8})$/;
+    if (!phoneRegex.test(formData.phone.replace(/[\s-]/g, ''))) {
+      setError("Παρακαλώ εισάγετε έναν έγκυρο ελληνικό ή κυπριακό αριθμό τηλεφώνου");
       return;
     }
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
+      setError("Ο κωδικός πρόσβασης πρέπει να είναι τουλάχιστον 6 χαρακτήρες");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      setError("Οι κωδικοί πρόσβασης δεν ταιριάζουν");
       return;
     }
 
@@ -68,18 +100,19 @@ export default function SignupPage() {
       const result = await auth.register(
         formData.email,
         formData.password,
-        formData.name
+        formData.name,
+        formData.phone
       );
       
       if (result.success) {
         // Dispatch login event and redirect based on user role
         window.dispatchEvent(new CustomEvent(AUTH_EVENTS.LOGIN));
         
-        // If user is admin, redirect to admin panel, otherwise to client code linking
+        // If user is admin, redirect to admin panel, otherwise to onboarding
         if (result.user.isAdmin) {
           router.push("/admin");
         } else {
-          router.push("/link-client-code");
+          router.push("/onboarding");
         }
       } else {
         setError(result.error || "Registration failed");
@@ -111,7 +144,7 @@ export default function SignupPage() {
             <MessageCircle className="w-8 h-8 text-white" />
           </motion.div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">SpeechTrack</h1>
-          <p className="text-gray-600">Create Your Parent Account</p>
+          <p className="text-gray-600">Δημιουργήστε τον Λογαριασμό Γονέα</p>
         </div>
 
 
@@ -121,10 +154,10 @@ export default function SignupPage() {
           <CardHeader className="text-center pb-4">
             <CardTitle className="flex items-center justify-center space-x-2 text-xl">
               <User className="w-5 h-5 text-blue-600" />
-              <span>Create Account</span>
+              <span>Δημιουργία Λογαριασμού</span>
             </CardTitle>
             <p className="text-sm text-gray-600 mt-2">
-              Fill in your details to create your account
+              Συμπληρώστε τα στοιχεία σας για να δημιουργήσετε τον λογαριασμό σας
             </p>
           </CardHeader>
           
@@ -133,14 +166,14 @@ export default function SignupPage() {
                   {/* Name Field */}
                   <div className="space-y-2">
                     <label htmlFor="name" className="text-sm font-medium text-gray-700">
-                      Full Name
+                      Πλήρες Όνομα
                     </label>
                     <Input
                       id="name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => handleInputChange("name", e.target.value)}
-                      placeholder="Enter your full name"
+                      placeholder="Εισάγετε το πλήρες όνομά σας"
                       className="h-12 text-base"
                       disabled={loading}
                     />
@@ -149,23 +182,42 @@ export default function SignupPage() {
                   {/* Email Field */}
                   <div className="space-y-2">
                     <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                      Email Address
+                      Διεύθυνση Email
                     </label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange("email", e.target.value)}
-                      placeholder="Enter your email address"
+                      placeholder="Εισάγετε τη διεύθυνση email σας"
                       className="h-12 text-base"
                       disabled={loading}
                     />
                   </div>
 
+                  {/* Phone Field */}
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                      Αριθμός Τηλεφώνου
+                    </label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      placeholder="π.χ. 6912345678 ή 97123456"
+                      className="h-12 text-base"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Εισάγετε έναν έγκυρο ελληνικό ή κυπριακό αριθμό (κινητό ή σταθερό)
+                    </p>
+                  </div>
+
                   {/* Password Field */}
                   <div className="space-y-2">
                     <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                      Password
+                      Κωδικός Πρόσβασης
                     </label>
                     <div className="relative">
                       <Input
@@ -173,7 +225,7 @@ export default function SignupPage() {
                         type={showPassword ? "text" : "password"}
                         value={formData.password}
                         onChange={(e) => handleInputChange("password", e.target.value)}
-                        placeholder="Create a password (min. 6 characters)"
+                        placeholder="Δημιουργήστε κωδικό (τουλάχιστον 6 χαρακτήρες)"
                         className="pr-10 h-12 text-base"
                         disabled={loading}
                       />
@@ -195,7 +247,7 @@ export default function SignupPage() {
                   {/* Confirm Password Field */}
                   <div className="space-y-2">
                     <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                      Confirm Password
+                      Επιβεβαίωση Κωδικού
                     </label>
                     <div className="relative">
                       <Input
@@ -203,7 +255,7 @@ export default function SignupPage() {
                         type={showConfirmPassword ? "text" : "password"}
                         value={formData.confirmPassword}
                         onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                        placeholder="Confirm your password"
+                        placeholder="Επιβεβαιώστε τον κωδικό σας"
                         className="pr-10 h-12 text-base"
                         disabled={loading}
                       />
@@ -242,10 +294,10 @@ export default function SignupPage() {
                     {loading ? (
                       <div className="flex items-center space-x-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        <span>Creating Account...</span>
+                        <span>Δημιουργία Λογαριασμού...</span>
                       </div>
                     ) : (
-                      "Create Account"
+                      "Δημιουργία Λογαριασμού"
                     )}
                   </Button>
             </form>
@@ -253,12 +305,12 @@ export default function SignupPage() {
             {/* Footer */}
             <div className="mt-6 pt-6 border-t border-gray-200 text-center">
               <p className="text-sm text-gray-600">
-                Already have an account?{" "}
+                Έχετε ήδη λογαριασμό;{" "}
                 <button 
                   onClick={() => router.push("/login")}
                   className="text-blue-600 hover:text-blue-700 font-medium"
                 >
-                  Sign In
+                  Σύνδεση
                 </button>
               </p>
             </div>

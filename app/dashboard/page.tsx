@@ -10,9 +10,12 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
-import { fileService } from "@/lib/fileService";
+import { fileServiceSimple as fileService } from "@/lib/fileServiceSimple";
 import FilePreview from "@/components/FilePreview";
 import EnhancedProgressCard from "@/components/EnhancedProgressCard";
+import SessionSnakeBoard from "@/components/SessionSnakeBoard";
+import HeroStepsProgress from "@/components/HeroStepsProgress";
+import CustomAchievementJourney from "@/components/CustomAchievementJourney";
 
 // Helper function to calculate age from date of birth
 const calculateAge = (dateOfBirth: string): number => {
@@ -47,10 +50,10 @@ import {
   Send,
   Clock,
   Target,
+  Trophy,
   ChevronLeft,
   ChevronRight,
   Star,
-  Trophy,
   Zap,
   PlayCircle,
   Award,
@@ -83,6 +86,14 @@ interface Student {
   age?: number;
   dateOfBirth?: string;
   parentContact: string;
+}
+
+interface Session {
+  id: string;
+  sessionNumber: number;
+  status: "completed" | "available" | "locked";
+  date?: string;
+  title?: string;
 }
 
 interface Child {
@@ -357,11 +368,10 @@ function DashboardContent() {
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
   const [firstModalOpen, setFirstModalOpen] = useState(true);
+  const [progressView, setProgressView] = useState<'classic' | 'hero' | 'achievement' | 'board'>('classic');
   const [linkedStudent, setLinkedStudent] = useState<Student | null>(null);
   const [checkingStudent, setCheckingStudent] = useState(true);
   const [previewFile, setPreviewFile] = useState<{ id: string; name: string; type: string; url: string } | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(true);
   const [showFilePreview, setShowFilePreview] = useState(false);
   const router = useRouter();
 
@@ -375,6 +385,14 @@ function DashboardContent() {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [sessionsPerPage] = useState(12);
   const [loadingPage, setLoadingPage] = useState(false);
+
+  // Global mystery session completion status
+  const [globalMysteryStatus, setGlobalMysteryStatus] = useState({
+    middleCompleted: false,
+    finalCompleted: false,
+    middleSessionNumber: -1,
+    finalSessionNumber: -1
+  });
 
   // Check for linked student (skip for admin users)
   useEffect(() => {
@@ -420,35 +438,14 @@ function DashboardContent() {
     checkLinkedStudent();
   }, [user?.id, isAdmin]);
 
-  // Load messages for the linked student
+  // Load messages for the linked student - DISABLED (messages collection removed)
   const loadMessages = useCallback(async () => {
-    if (!linkedStudent?.$id) return;
-    
-    try {
-      setMessagesLoading(true);
-      
-      const messagesResponse = await databases.listDocuments(
-        appwriteConfig.databaseId!,
-        appwriteConfig.collections.messages!,
-        [
-          Query.equal('studentId', linkedStudent.$id),
-          Query.orderAsc('$createdAt'),
-          Query.limit(100)
-        ]
-      );
-      
-      setMessages(messagesResponse.documents);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    } finally {
-      setMessagesLoading(false);
-    }
-  }, [linkedStudent?.$id]);
+    // Messages functionality disabled - collection was removed
+    setMessages([]);
+    setMessagesLoading(false);
+  }, []);
 
-  // Calculate unread messages count
-  const unreadCount = useMemo(() => {
-    return messages.filter(m => !m.isRead && m.senderId !== user?.id).length;
-  }, [messages, user?.id]);
+
 
   // Load messages when linked student changes
   useEffect(() => {
@@ -457,6 +454,74 @@ function DashboardContent() {
     }
   }, [linkedStudent, loadMessages]);
 
+  // Load global mystery session completion status
+  const loadGlobalMysteryStatus = useCallback(async (studentId: string, totalSessionsCount: number) => {
+    try {
+      if (totalSessionsCount === 0) return;
+      
+      // Calculate mystery sessions based on total count
+      const middleSessionNumber = Math.floor((totalSessionsCount - 1) / 2) + 1;
+      const finalSessionNumber = totalSessionsCount;
+      
+      // Get active folder for student
+      const activeFolders = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessionFolders,
+        [
+          Query.equal('studentId', studentId),
+          Query.equal('isActive', true),
+          Query.limit(1)
+        ]
+      );
+      
+      // Build base queries for either active folder or all sessions
+      const baseQueries = [Query.equal('studentId', studentId)];
+      if (activeFolders.documents.length > 0) {
+        baseQueries.push(Query.equal('folderId', activeFolders.documents[0].$id));
+      }
+      
+      // Fetch all completed sessions for this student/folder
+      const completedSessions = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.collections.sessions,
+        [
+          ...baseQueries,
+          Query.equal('status', 'completed')
+        ]
+      );
+      
+      // Helper function to extract numeric session number from string
+      const getSessionNumber = (sessionNumber) => {
+        if (typeof sessionNumber === 'string' && sessionNumber.includes(' - ')) {
+          const num = parseInt(sessionNumber.split(' - ')[0]);
+          return isNaN(num) ? 0 : num;
+        }
+        return typeof sessionNumber === 'number' ? sessionNumber : parseInt(sessionNumber) || 0;
+      };
+      
+      // Find middle and final sessions by comparing numeric values
+      const middleCompleted = completedSessions.documents.some(session => 
+        getSessionNumber(session.sessionNumber) === middleSessionNumber
+      );
+      
+      const finalCompleted = completedSessions.documents.some(session => 
+        getSessionNumber(session.sessionNumber) === finalSessionNumber
+      );
+      
+      console.log(`🎁 Mystery Status: Middle (${middleSessionNumber}): ${middleCompleted}, Final (${finalSessionNumber}): ${finalCompleted}`);
+      
+      setGlobalMysteryStatus({
+        middleCompleted,
+        finalCompleted,
+        middleSessionNumber,
+        finalSessionNumber
+      });
+      
+    } catch (error) {
+      console.error('Error loading global mystery status:', error);
+    }
+  }, []);
+
   // Load sessions for student with pagination
   const loadSessionsForStudent = useCallback(async (studentId: string, page: number = 1) => {
     try {
@@ -464,12 +529,35 @@ function DashboardContent() {
       
       console.log('Loading sessions for student:', studentId, 'page:', page);
       
-      // First, get total count of sessions for this student
+      // First, get the active folder for this student
+      let activeFolderId = null;
+      try {
+        const foldersResponse = await fetch(`/api/admin/session-folders?studentId=${studentId}`);
+        const foldersData = await foldersResponse.json();
+        
+        if (foldersData.success && foldersData.folders) {
+          const activeFolder = foldersData.folders.find((f: any) => f.isActive);
+          if (activeFolder) {
+            activeFolderId = activeFolder.$id;
+            console.log(`Found active folder: ${activeFolder.name} (${activeFolderId})`);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch session folders, showing all sessions:', error);
+      }
+      
+      // Build queries with optional folder filtering
+      const baseQueries = [Query.equal('studentId', studentId)];
+      if (activeFolderId) {
+        baseQueries.push(Query.equal('folderId', activeFolderId));
+      }
+      
+      // First, get total count of sessions for this student (in active folder if exists)
       const totalCountResponse = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.collections.sessions,
         [
-          Query.equal('studentId', studentId),
+          ...baseQueries,
           Query.limit(1) // We just need the total count
         ]
       );
@@ -478,12 +566,15 @@ function DashboardContent() {
       setTotalSessions(totalCount);
       setTotalPages(Math.ceil(totalCount / sessionsPerPage));
       
-      // Get count of completed sessions
+      // Load global mystery status with the total count
+      await loadGlobalMysteryStatus(studentId, totalCount);
+      
+      // Get count of completed sessions (in active folder if exists)
       const completedCountResponse = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.collections.sessions,
         [
-          Query.equal('studentId', studentId),
+          ...baseQueries,
           Query.equal('status', 'completed'),
           Query.limit(1) // We just need the total count
         ]
@@ -491,14 +582,13 @@ function DashboardContent() {
       
       setCompletedSessions(completedCountResponse.total);
       
-      // Then get the paginated sessions
+      // Then get the paginated sessions (from active folder if exists) - removed ordering from query
       const offset = (page - 1) * sessionsPerPage;
       const sessionsResponse = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.collections.sessions,
         [
-          Query.equal('studentId', studentId),
-          Query.orderAsc('sessionNumber'),
+          ...baseQueries,
           Query.limit(sessionsPerPage),
           Query.offset(offset)
         ]
@@ -506,6 +596,18 @@ function DashboardContent() {
       
       console.log(`Loaded ${sessionsResponse.documents.length} sessions for student: ${studentId} (page ${page})`);
       console.log('Raw sessions response:', sessionsResponse);
+      
+      // Sort sessions numerically by extracting number from sessionNumber string
+      sessionsResponse.documents.sort((a, b) => {
+        const getSessionNumber = (sessionNumber) => {
+          if (typeof sessionNumber === 'string' && sessionNumber.includes(' - ')) {
+            const num = parseInt(sessionNumber.split(' - ')[0]);
+            return isNaN(num) ? 0 : num;
+          }
+          return typeof sessionNumber === 'number' ? sessionNumber : parseInt(sessionNumber) || 0;
+        };
+        return getSessionNumber(a.sessionNumber) - getSessionNumber(b.sessionNumber);
+      });
       
       // Convert real sessions to the format expected by the UI
       const realSessionsData = await Promise.all(sessionsResponse.documents.map(async session => {
@@ -573,9 +675,18 @@ function DashboardContent() {
           parsed: { achievement, feedback }
         });
 
+        // Extract clean session number for display
+        const getDisplaySessionNumber = (sessionNumber) => {
+          if (typeof sessionNumber === 'string' && sessionNumber.includes(' - ')) {
+            const num = parseInt(sessionNumber.split(' - ')[0]);
+            return isNaN(num) ? sessionNumber : num;
+          }
+          return sessionNumber;
+        };
+
         return {
           id: session.$id,
-          sessionNumber: session.sessionNumber,
+          sessionNumber: getDisplaySessionNumber(session.sessionNumber),
           title: session.title,
           description: session.description || '',
           date: session.date,
@@ -601,7 +712,7 @@ function DashboardContent() {
     } finally {
       setLoadingPage(false);
     }
-  }, [sessionsPerPage]);
+  }, [sessionsPerPage, loadGlobalMysteryStatus]);
 
   // Calculate real stats from session data
   const calculateStats = useCallback(() => {
@@ -1348,20 +1459,132 @@ function DashboardContent() {
     getAchievementIcon
   ]);
 
-  const JourneyBoard = () => (
-    <div className="space-y-8 pb-8 md:pb-0">
-      <EnhancedProgressCard
-        studentName={linkedStudent?.name || "Εμμας"}
-        completedSessions={calculateStats().completed}
-        totalSessions={calculateStats().total}
-        remainingSessions={calculateStats().remaining}
-        streak={linkedStudent?.streak || 0}
-        level={linkedStudent?.level || "Αρχάριος"}
-        achievements={linkedStudent?.achievements || []}
-      />
+  const JourneyBoard = () => {
+    // Convert sessions to format needed by HeroStepsProgress
+    const heroSessions: Session[] = realSessions.map((session, index) => ({
+      id: session.$id,
+      sessionNumber: session.sessionNumber || index + 1,
+      status: session.status as "completed" | "available" | "locked",
+      date: session.$createdAt,
+      title: session.title || `Συνεδρία ${session.sessionNumber || index + 1}`
+    }));
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
+    const currentSessionIndex = realSessions.findIndex(s => s.status === "available") || 0;
+
+    return (
+      <div className="space-y-8 pb-8 md:pb-0">
+        {/* Progress View Toggle */}
+        <div className="flex justify-end mb-4">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={progressView === 'classic' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setProgressView('classic')}
+              className="text-xs"
+            >
+              Κλασσική
+            </Button>
+            <Button
+              variant={progressView === 'hero' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setProgressView('hero')}
+              className="text-xs flex items-center space-x-1"
+            >
+              <Star className="w-3 h-3" />
+              <span>Ήρωας</span>
+            </Button>
+            <Button
+              variant={progressView === 'achievement' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setProgressView('achievement')}
+              className="text-xs flex items-center space-x-1"
+            >
+              <Trophy className="w-3 h-3" />
+              <span>Επιτεύγματα</span>
+            </Button>
+            <Button
+              variant={progressView === 'board' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setProgressView('board')}
+              className="text-xs flex items-center space-x-1"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 3h4v4H3V3zm6 0h4v4H9V3zm6 0h4v4h-4V3zM3 9h4v4H3V9zm6 0h4v4H9V9zm6 0h4v4h-4V9zM3 15h4v4H3v-4zm6 0h4v4H9v-4zm6 0h4v4h-4v-4z"/>
+              </svg>
+              <span>Πίνακας</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Progress Display */}
+        {progressView === 'hero' ? (
+          <HeroStepsProgress
+            studentName={linkedStudent?.name || "Εμμας"}
+            sessions={heroSessions}
+            currentSessionIndex={currentSessionIndex}
+            onSessionClick={(session) => {
+              const originalSession = realSessions.find(s => s.$id === session.id);
+              if (originalSession) {
+                setSelectedSession(originalSession);
+              }
+            }}
+            showParentInfo={true}
+          />
+        ) : progressView === 'achievement' ? (
+          <CustomAchievementJourney
+            studentId={linkedStudent?.$id || ''}
+            studentName={linkedStudent?.name || "Εμμας"}
+            onStepClick={(step) => {
+              console.log('Step clicked:', step);
+              // You could add step-specific actions here
+            }}
+            showParentInfo={false}
+          />
+        ) : progressView === 'board' ? (
+          <SessionSnakeBoard
+            sessions={realSessions.map(session => ({
+              id: session.id,
+              sessionNumber: session.sessionNumber || 0,
+              title: session.title,
+              date: session.date,
+              duration: session.duration,
+              status: session.status as 'completed' | 'locked' | 'available' | 'canceled',
+              isPaid: session.isPaid,
+              achievement: session.achievement
+            }))}
+            studentName={linkedStudent?.name || "Εμμας"}
+            onSessionClick={(session) => {
+              const originalSession = realSessions.find(s => s.id === session.id);
+              if (originalSession) {
+                setSelectedSession(originalSession);
+              }
+            }}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalSessions={totalSessions}
+            completedSessions={completedSessions}
+            globalMysteryStatus={globalMysteryStatus}
+            onPageChange={async (page) => {
+              if (linkedStudent) {
+                await loadSessionsForStudent(linkedStudent.$id, page);
+              }
+            }}
+            loading={loadingPage}
+          />
+        ) : (
+          <EnhancedProgressCard
+            studentName={linkedStudent?.name || "Εμμας"}
+            completedSessions={calculateStats().completed}
+            totalSessions={calculateStats().total}
+            remainingSessions={calculateStats().remaining}
+            streak={linkedStudent?.streak || 0}
+            level={linkedStudent?.level || "Αρχάριος"}
+            achievements={linkedStudent?.achievements || []}
+          />
+        )}
+
+      {/* Pagination Controls - Hidden for board view since it has its own */}
+      {totalPages > 1 && progressView !== 'board' && (
         <div className="flex items-center justify-between bg-white rounded-lg border p-4">
           <div className="flex items-center space-x-2">
             <Button
@@ -1420,7 +1643,8 @@ function DashboardContent() {
 
         {/* Session Cards */}
         <div className="space-y-6 md:space-y-8 pb-32 md:pb-8">
-        {(realSessions.length > 0 ? realSessions : mockSessions).map((session, index) => (
+        {realSessions.length > 0 ? (
+          realSessions.map((session, index) => (
           <motion.div
             key={session.id}
             initial={{ opacity: 0, x: -50 }}
@@ -1555,11 +1779,56 @@ function DashboardContent() {
               </motion.div>
             </div>
           </motion.div>
-        ))}
+          ))
+        ) : (
+          /* No Sessions State */
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center py-16"
+          >
+            <Card className="max-w-md mx-auto shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardContent className="p-8">
+                <div className="mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Δεν έχουν προγραμματιστεί συνεδρίες ακόμα
+                  </h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    Ο θεραπευτής θα προγραμματίσει τις συνεδρίες σας σύντομα. 
+                    Θα λάβετε ειδοποίηση όταν οι συνεδρίες γίνουν διαθέσιμες.
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span>Η εγγραφή σας έχει ολοκληρωθεί</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                    <Clock className="w-4 h-4 text-blue-500" />
+                    <span>Αναμονή για προγραμματισμό συνεδριών</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-800 text-center">
+                    <strong>Συμβουλή:</strong> Μπορείτε να επικοινωνήσετε με τον θεραπευτή 
+                    μέσω της καρτέλας "Μηνύματα" για οποιεσδήποτε ερωτήσεις.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
         </div>
       </div>
     </div>
   );
+  };
 
   const ProfileTab = () => {
     // Parse parent contact info from linkedStudent
@@ -1718,206 +1987,10 @@ function DashboardContent() {
     );
   };
 
-  const MessagesTab = () => {
-    const [newMessage, setNewMessage] = useState("");
-    const [isMobile, setIsMobile] = useState(false);
-    const [sending, setSending] = useState(false);
+  // MessagesTab component removed - functionality disabled
 
-    useEffect(() => {
-      const checkIfMobile = () => {
-        setIsMobile(window.innerWidth < 768);
-      };
-      
-      checkIfMobile();
-      window.addEventListener('resize', checkIfMobile);
-      
-      return () => window.removeEventListener('resize', checkIfMobile);
-    }, []);
 
-    // Send message function (using shared loadMessages from parent)
-    const handleSendMessage = useCallback(async () => {
-      if (!newMessage.trim() || !linkedStudent?.$id || !user?.id) return;
-      
-      try {
-        setSending(true);
-        
-        await databases.createDocument(
-          appwriteConfig.databaseId!,
-          appwriteConfig.collections.messages!,
-          'unique()',
-          {
-            studentId: linkedStudent.$id,
-            senderId: user.id,
-            receiverId: 'admin', // Messages from parent go to admin
-            content: newMessage.trim(),
-            isRead: false,
-            messageType: 'text'
-          }
-        );
-        
-        setNewMessage("");
-        await loadMessages(); // Reload messages to show the new one
-        
-      } catch (error) {
-        console.error('Error sending message:', error);
-        alert('Σφάλμα κατά την αποστολή του μηνύματος. Παρακαλώ δοκιμάστε ξανά.');
-      } finally {
-        setSending(false);
-      }
-    }, [newMessage, linkedStudent?.$id, user?.id, loadMessages]);
-
-    const formatTime = (timestamp: string) => {
-      const date = new Date(timestamp);
-      return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const formatDate = (timestamp: string) => {
-      const date = new Date(timestamp);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      if (date.toDateString() === today.toDateString()) {
-        return 'Σήμερα';
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        return 'Χθες';
-      } else {
-        return date.toLocaleDateString('el-GR');
-      }
-    };
-
-    return (
-      <div className={`${isMobile ? 'fixed inset-0 z-50' : 'relative h-[calc(100vh-200px)] rounded-xl border border-gray-200'} bg-white flex flex-col`}>
-        {/* Chat Header with Back Button */}
-        <div className="flex items-center space-x-3 p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
-          {isMobile && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="hover:bg-white/50 transition-colors p-2"
-              onClick={() => setActiveTab("journey")}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          )}
-          <Avatar className="w-10 h-10">
-            <AvatarFallback className="bg-gradient-to-br from-blue-100 to-purple-100 text-blue-700 font-semibold">
-              ΔΜ
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">Μαριλένα Νέστωρος</h3>
-            <p className="text-sm text-gray-600">Λογοθεραπευτής</p>
-          </div>
-          {unreadCount > 0 && (
-            <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">
-              {unreadCount} νέα
-            </Badge>
-          )}
-        </div>
-
-        {/* Messages Container - Full Screen Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-          {messagesLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Φόρτωση μηνυμάτων...</p>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Δεν υπάρχουν μηνύματα</h3>
-              <p className="text-gray-600">Στείλτε το πρώτο σας μήνυμα!</p>
-            </div>
-          ) : (
-            messages.map((message: Message, index: number) => {
-              const showDate = index === 0 || 
-                new Date(message.$createdAt).toDateString() !== 
-                new Date(messages[index - 1].$createdAt).toDateString();
-
-              return (
-                <div key={message.$id}>
-                  {/* Date separator */}
-                  {showDate && (
-                    <div className="flex justify-center mb-4">
-                      <span className="bg-white text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
-                        {formatDate(message.$createdAt)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Message bubble */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[85%] md:max-w-[70%] ${
-                      message.senderId === user?.id 
-                        ? 'bg-blue-500 text-white rounded-l-2xl rounded-tr-2xl rounded-br-md' 
-                        : 'bg-white text-gray-900 rounded-r-2xl rounded-tl-2xl rounded-bl-md border border-gray-200'
-                    } p-3 shadow-sm`}>
-                      <p className="text-sm leading-relaxed">{message.content}</p>
-                      <div className={`flex items-center justify-end mt-2 space-x-1 ${
-                        message.senderId === user?.id ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
-                        <span className="text-xs">{formatTime(message.$createdAt)}</span>
-                        {message.senderId === user?.id && (
-                          <CheckCircle className={`w-3 h-3 ${message.isRead ? 'text-blue-200' : 'text-blue-300'}`} />
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-              );
-            })
-          )}
-          {/* Bottom padding to ensure last message is visible above input */}
-          <div className="h-4"></div>
-        </div>
-
-        {/* Message Input - Fixed at Bottom */}
-        <div className="p-4 border-t border-gray-200 bg-white flex-shrink-0">
-          <div className="flex space-x-3">
-            <div className="flex-1">
-              <Textarea
-                placeholder="Πληκτρολογήστε το μήνυμά σας..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="min-h-[60px] resize-none border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                rows={2}
-              />
-            </div>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || sending}
-              className="bg-blue-500 hover:bg-blue-600 px-4 h-auto flex-shrink-0"
-            >
-              {sending ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const [isMobileMessagesFullscreen, setIsMobileMessagesFullscreen] = useState(false);
-
-  useEffect(() => {
-    const checkMobileMessagesFullscreen = () => {
-      setIsMobileMessagesFullscreen(activeTab === "messages" && window.innerWidth < 768);
-    };
-    
-    checkMobileMessagesFullscreen();
-    window.addEventListener('resize', checkMobileMessagesFullscreen);
-    
-    return () => window.removeEventListener('resize', checkMobileMessagesFullscreen);
-  }, [activeTab]);
+  // Main component logic continues here
 
   // Show loading while checking for linked student
   if (checkingStudent) {
@@ -2014,8 +2087,8 @@ function DashboardContent() {
       {/* Session Modal */}
       {SessionModal}
       
-      {/* Enhanced Header - Hidden when in mobile fullscreen messages */}
-      {!isMobileMessagesFullscreen && (
+      {/* Enhanced Header */}
+      {(
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2065,8 +2138,8 @@ function DashboardContent() {
         </motion.header>
       )}
 
-      {/* Desktop Navigation Tabs - Only visible on desktop and not in mobile fullscreen messages */}
-      {!isMobileMessagesFullscreen && (
+      {/* Desktop Navigation Tabs */}
+      {(
         <motion.nav 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2100,43 +2173,26 @@ function DashboardContent() {
                 <span>Προφίλ Παιδιού</span>
               </button>
               
-              <button
-                onClick={() => setActiveTab("messages")}
-                className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors relative ${
-                  activeTab === "messages"
-                    ? "text-blue-600 border-blue-600 bg-blue-50/50"
-                    : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"
-                }`}
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>Μηνύματα</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+
             </div>
           </div>
         </motion.nav>
       )}
 
-      {/* Main Content - Hidden when in mobile fullscreen messages */}
-      {!isMobileMessagesFullscreen && (
+      {/* Main Content */}
+      {(
       <main className="pb-4 md:pb-6">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {activeTab === "journey" && <JourneyBoard />}
           {activeTab === "profile" && <ProfileTab />}
-          {activeTab === "messages" && <MessagesTab />}
         </div>
       </main>
       )}
       
-      {/* Mobile Fullscreen Messages */}
-      {isMobileMessagesFullscreen && <MessagesTab />}
 
-      {/* Enhanced Mobile Navigation Dock - Only on mobile and not in fullscreen messages */}
-      {!isMobileMessagesFullscreen && (
+
+      {/* Enhanced Mobile Navigation Dock */}
+      {(
       <motion.nav 
         initial={{ y: 100 }}
         animate={{ y: 0 }}
@@ -2196,28 +2252,7 @@ function DashboardContent() {
             )}
           </motion.button>
           
-          <motion.button
-            type="button"
-            onClick={() => setActiveTab("messages")}
-            className={`flex flex-col items-center py-3 px-4 rounded-xl transition-all duration-300 ${
-              activeTab === "messages" 
-                ? "text-blue-600 bg-gradient-to-br from-blue-50 to-purple-50 shadow-md" 
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-            }`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <MessageCircle className={`w-6 h-6 mb-1 transition-transform ${activeTab === "messages" ? "scale-110" : ""}`} />
-                                <span className="text-xs font-medium">Μηνύματα</span>
-            {activeTab === "messages" && (
-              <motion.div
-                layoutId="activeTab"
-                className="absolute -top-1 w-1 h-1 bg-blue-600 rounded-full"
-                initial={false}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </motion.button>
+
         </div>
       </motion.nav>
       )}

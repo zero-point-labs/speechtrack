@@ -390,6 +390,8 @@ function EditStudentPageContent() {
           </CardContent>
         </Card>
 
+
+
         {/* Bottom spacing for mobile */}
         <div className="h-8"></div>
       </div>

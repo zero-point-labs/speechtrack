@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AdminRoute } from "@/lib/auth-middleware";
 import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
-import { fileService } from "@/lib/fileService";
+import { fileServiceSimple as fileService } from "@/lib/fileServiceSimple";
 import FilePreview from "@/components/FilePreview";
 // import FileUpload from "@/components/FileUpload"; // Unused import
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { 
   ArrowLeft, 
   Save, 
@@ -27,7 +28,14 @@ import {
   MessageCircle,
   Send,
   User,
-  Trophy
+  Trophy,
+  Stethoscope,
+  Plus,
+  Edit,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 
 // Types
@@ -39,9 +47,22 @@ interface SessionFileData {
   type: string;
 }
 
+// Therapist Node Interface
+interface TherapistNode {
+  id: string;
+  type: 'clinical' | 'assessment' | 'planning' | 'internal' | 'observation';
+  title: string;
+  content: string;
+  priority?: 'low' | 'medium' | 'high';
+  category?: string;
+  timestamp: string;
+  therapistId?: string;
+}
+
 interface SessionData {
   id: string;
   studentId: string;
+  folderId?: string;
   sessionNumber: number;
   title: string;
   date: string;
@@ -50,6 +71,7 @@ interface SessionData {
   isPaid: boolean;
   therapistNotes: string;
   sessionSummary: string;
+  therapistNodes: TherapistNode[]; // NEW: Private therapist nodes (stored in therapistNotes field)
   achievement?: {
     type: 'milestone' | 'skill' | 'breakthrough';
     title: string;
@@ -74,6 +96,7 @@ interface SessionData {
 const mockSessionData: SessionData = {
   id: "1",
   studentId: "1",
+  folderId: "1",
   sessionNumber: 1,
   title: "Αρχική Αξιολόγηση & Εισαγωγή",
   date: "2024-01-01",
@@ -82,6 +105,7 @@ const mockSessionData: SessionData = {
   isPaid: true,
   therapistNotes: "Emma showed great enthusiasm during our first session. We completed a comprehensive assessment of her current speech patterns and identified areas for improvement.",
   sessionSummary: "During this initial session, we focused on building rapport and conducting a thorough speech assessment. Emma demonstrated strong listening skills and was eager to participate in all activities.",
+  therapistNodes: [], // NEW: Initialize empty therapist nodes
   achievement: {
     type: "milestone",
     title: "Πρώτα Βήματα",
@@ -115,11 +139,28 @@ function SessionEditPageContent() {
   
   // Check if this is a new session based on sessionId (timestamp-based IDs are new sessions)
   const isNewSession = sessionId && /^\d{13}$/.test(sessionId); // 13-digit timestamp
+
+  // Function to get the correct back URL
+  const getBackUrl = () => {
+    // If we have both studentId and folderId, go to the folder sessions page
+    if (sessionData.studentId && sessionData.folderId) {
+      return `/admin/students/${sessionData.studentId}/folders/${sessionData.folderId}`;
+    }
+    // If we only have studentId from URL params, go to the student folders page
+    else if (studentId) {
+      return `/admin/students/${studentId}/folders`;
+    }
+    // Fallback to main admin page
+    else {
+      return '/admin';
+    }
+  };
   
   // Use empty data for new sessions, will load real data for existing ones
   const initialSessionData = {
     id: sessionId,
-    studentId: "1",
+    studentId: studentId || "1",
+    folderId: searchParams.get('folderId') || undefined,
     sessionNumber: 1,
     title: "",
     date: new Date().toISOString().split('T')[0],
@@ -128,6 +169,7 @@ function SessionEditPageContent() {
     isPaid: false,
     therapistNotes: "",
     sessionSummary: "",
+    therapistNodes: [], // NEW: Initialize empty therapist nodes
     materials: { pdfs: [], videos: [], images: [] },
     feedback: []
   };
@@ -139,6 +181,64 @@ function SessionEditPageContent() {
   const [loading, setLoading] = useState(!isNewSession);
   const [previewFile, setPreviewFile] = useState<any>(null);
   const [showFilePreview, setShowFilePreview] = useState(false);
+
+  // Upload Progress State
+  const [uploadProgress, setUploadProgress] = useState<{
+    isUploading: boolean;
+    fileName: string;
+    progress: number;
+    fileType: string;
+  } | null>(null);
+
+  // NEW: Therapist Nodes State
+  const [newTherapistNode, setNewTherapistNode] = useState<Partial<TherapistNode>>({
+    type: 'clinical',
+    title: '',
+    content: '',
+    priority: 'medium'
+  });
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+
+  // Upload helper function with progress
+  const uploadWithProgress = async (file: File, fileType: 'pdf' | 'video' | 'image') => {
+    try {
+      // Start upload progress
+      setUploadProgress({
+        isUploading: true,
+        fileName: file.name,
+        progress: 0,
+        fileType: fileType
+      });
+
+      // Simulate progress (since we can't get real progress from fetch)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev && prev.progress < 90) {
+            return { ...prev, progress: prev.progress + 10 };
+          }
+          return prev;
+        });
+      }, 200);
+
+      // Actual upload
+      const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+
+      // Complete progress
+      setUploadProgress(prev => prev ? { ...prev, progress: 100 } : null);
+      
+      setTimeout(() => {
+        setUploadProgress(null);
+      }, 1000);
+
+      clearInterval(progressInterval);
+      
+      return uploadedFile;
+
+    } catch (error) {
+      setUploadProgress(null);
+      throw error;
+    }
+  };
 
   // Load session data from Appwrite if it's an existing session, or initialize new session
   useEffect(() => {
@@ -155,9 +255,9 @@ function SessionEditPageContent() {
       
       // Get the highest session number for this student to calculate next number
       const existingSessions = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [Query.equal('studentId', studentId), Query.orderDesc('sessionNumber')]
+        appwriteConfig.databaseId!,
+        appwriteConfig.collections.sessions!,
+        [Query.equal('studentId', studentId!), Query.orderDesc('sessionNumber')]
       );
       
       const nextSessionNumber = existingSessions.documents.length > 0 
@@ -169,7 +269,7 @@ function SessionEditPageContent() {
       // Update session data with correct studentId and sessionNumber
       setSessionData(prev => ({
         ...prev,
-        studentId: studentId,
+        studentId: studentId!,
         sessionNumber: nextSessionNumber,
         title: `Συνεδρία ${nextSessionNumber}`
       }));
@@ -188,13 +288,13 @@ function SessionEditPageContent() {
       
       // Load session from Appwrite
       const session = await databases.getDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
+        appwriteConfig.databaseId!,
+        appwriteConfig.collections.sessions!,
         sessionId
       );
 
       // Map database status to UI status
-      const dbToUIStatusMapping = {
+      const dbToUIStatusMapping: Record<string, 'completed' | 'locked' | 'canceled'> = {
         'completed': 'completed',
         'available': 'locked', // Default available sessions to locked in UI
         'locked': 'locked',
@@ -203,32 +303,34 @@ function SessionEditPageContent() {
       
       const uiStatus = dbToUIStatusMapping[session.status] || 'locked';
       
-      // Load session files from Appwrite Storage
-      const materials = { pdfs: [], videos: [], images: [] };
+      // Load session files using new R2 API
+      const materials: {
+        pdfs: SessionFileData[];
+        videos: SessionFileData[];
+        images: SessionFileData[];
+      } = { pdfs: [], videos: [], images: [] };
       
       try {
-        // Get files for this session from storage
-        const files = await storage.listFiles(appwriteConfig.buckets.files);
-        const sessionFiles = files.files.filter(file => 
-          file.name.startsWith(`${session.$id}_`)
-        );
+        // Get files for this session from our new API
+        console.log('📁 Loading files for session:', session.$id);
+        const sessionFiles = await fileService.getSessionFiles(session.$id);
+        console.log('📁 Found files:', sessionFiles);
         
         // Categorize files by type
-        sessionFiles.forEach(file => {
-          const fileType = file.mimeType || '';
+        sessionFiles.forEach((file: any) => {
           const fileData = {
-            id: file.$id,
-            name: file.name.replace(`${session.$id}_`, ''), // Remove session ID prefix from display name
-            size: fileService.formatFileSize(file.sizeOriginal),
-            uploadDate: new Date(file.$createdAt).toLocaleDateString('el-GR'),
-            type: fileType
+            id: file.id,
+            name: file.name,
+            size: fileService.formatFileSize(file.size || 0),
+            uploadDate: file.uploadDate ? new Date(file.uploadDate).toLocaleDateString('el-GR') : 'Σήμερα',
+            type: file.type
           };
           
-          if (fileType.includes('pdf')) {
+          if (file.type === 'pdf') {
             materials.pdfs.push(fileData);
-          } else if (fileType.includes('image')) {
+          } else if (file.type === 'image') {
             materials.images.push(fileData);
-          } else if (fileType.includes('video')) {
+          } else if (file.type === 'video') {
             materials.videos.push(fileData);
           }
         });
@@ -239,6 +341,7 @@ function SessionEditPageContent() {
       // Parse JSON fields
       let achievement = null;
       let feedback = [];
+      let therapistNodes: TherapistNode[] = [];
       
       try {
         if (session.achievement) {
@@ -255,23 +358,60 @@ function SessionEditPageContent() {
       } catch (error) {
         console.error('Error parsing feedback:', error);
       }
+      
+      try {
+        // Check if therapistNotes contains JSON array (new format) or plain text (old format)
+        const notesContent = session.therapistNotes || '';
+        if (notesContent.trim().startsWith('[') || notesContent.trim().startsWith('{')) {
+          // New structured format - parse as JSON
+          therapistNodes = JSON.parse(notesContent);
+        } else if (notesContent.trim().length > 0) {
+          // Old plain text format - convert to structured format
+          therapistNodes = [{
+            id: 'legacy-note',
+            type: 'internal',
+            title: 'Παλαιές Σημειώσεις',
+            content: notesContent,
+            priority: 'medium',
+            timestamp: new Date().toISOString(),
+            therapistId: 'legacy'
+          }];
+        }
+      } catch (error) {
+        console.error('Error parsing therapist notes:', error);
+        // If parsing fails, treat as plain text
+        const notesContent = session.therapistNotes || '';
+        if (notesContent.trim().length > 0) {
+          therapistNodes = [{
+            id: 'legacy-note-fallback',
+            type: 'internal',
+            title: 'Παλαιές Σημειώσεις (Αποκατάσταση)',
+            content: notesContent,
+            priority: 'medium',
+            timestamp: new Date().toISOString(),
+            therapistId: 'legacy'
+          }];
+        }
+      }
 
-      // Convert Appwrite session to UI format
-              const sessionForUI: SessionData = {
-          id: session.$id,
-          studentId: session.studentId,
-          sessionNumber: session.sessionNumber,
-          title: session.title,
-          date: session.date.split('T')[0], // Convert to date only
-          duration: session.duration + ' λεπτά',
-          status: uiStatus, // Use mapped status
-          isPaid: session.isPaid || false,
-          therapistNotes: session.therapistNotes || '',
-          sessionSummary: session.sessionSummary || '',
-          achievement,
-          materials, // Use loaded materials
-          feedback
-        };
+            // Convert Appwrite session to UI format
+      const sessionForUI: SessionData = {
+        id: session.$id,
+        studentId: session.studentId,
+        folderId: session.folderId,
+        sessionNumber: session.sessionNumber,
+        title: session.title,
+        date: session.date.split('T')[0], // Convert to date only
+        duration: session.duration + ' λεπτά',
+        status: uiStatus, // Use mapped status
+        isPaid: session.isPaid || false,
+        therapistNotes: '', // Legacy field now used for structured storage
+        sessionSummary: session.sessionSummary || '',
+        therapistNodes, // NEW: Include therapist nodes
+        achievement,
+        materials, // Use loaded materials
+        feedback
+      };
 
       setSessionData(sessionForUI);
       
@@ -287,7 +427,7 @@ function SessionEditPageContent() {
 
 
   // Handle file preview
-  const handleFilePreview = (file: { $id: string; name: string; type: string }) => {
+  const handleFilePreview = (file: { id: string; name: string; type: string }) => {
     // Create file object with proper URL for preview
     const fileType = file.type || '';
     const fileName = file.name || '';
@@ -302,7 +442,7 @@ function SessionEditPageContent() {
   };
 
   // Handle file download
-  const handleFileDownload = async (file: { $id: string; name: string }) => {
+  const handleFileDownload = async (file: { id: string; name: string }) => {
     try {
       const downloadUrl = fileService.getFileDownloadUrl(file.id);
       const link = document.createElement('a');
@@ -318,7 +458,7 @@ function SessionEditPageContent() {
   };
 
   // Delete file handler
-  const handleDeleteFile = async (fileType: string, fileId: string) => {
+  const handleDeleteFile = async (fileType: keyof SessionData['materials'], fileId: string) => {
     try {
       // Delete from Appwrite storage
       await fileService.deleteFile(fileId);
@@ -347,6 +487,57 @@ function SessionEditPageContent() {
     }
   };
 
+  // NEW: Therapist Nodes Helper Functions
+  const addTherapistNode = () => {
+    if (!newTherapistNode.title?.trim() || !newTherapistNode.content?.trim()) {
+      alert('Παρακαλώ συμπληρώστε τίτλο και περιεχόμενο.');
+      return;
+    }
+
+    const node: TherapistNode = {
+      id: Date.now().toString(),
+      type: newTherapistNode.type as TherapistNode['type'],
+      title: newTherapistNode.title,
+      content: newTherapistNode.content,
+      priority: newTherapistNode.priority as TherapistNode['priority'],
+      category: newTherapistNode.category,
+      timestamp: new Date().toISOString(),
+      therapistId: sessionData.studentId // Using studentId as placeholder, should be actual therapist ID
+    };
+
+    setSessionData(prev => ({
+      ...prev,
+      therapistNodes: [...prev.therapistNodes, node]
+    }));
+
+    // Reset form
+    setNewTherapistNode({
+      type: 'clinical',
+      title: '',
+      content: '',
+      priority: 'medium'
+    });
+  };
+
+  const deleteTherapistNode = (nodeId: string) => {
+    if (window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη σημείωση;')) {
+      setSessionData(prev => ({
+        ...prev,
+        therapistNodes: prev.therapistNodes.filter(node => node.id !== nodeId)
+      }));
+    }
+  };
+
+  const updateTherapistNode = (nodeId: string, updates: Partial<TherapistNode>) => {
+    setSessionData(prev => ({
+      ...prev,
+      therapistNodes: prev.therapistNodes.map(node =>
+        node.id === nodeId ? { ...node, ...updates, timestamp: new Date().toISOString() } : node
+      )
+    }));
+    setEditingNodeId(null);
+  };
+
   // Save session handler
   const handleSave = async () => {
     try {
@@ -370,7 +561,7 @@ function SessionEditPageContent() {
         date: sessionData.date + 'T00:00:00.000Z', // Convert back to ISO string
         duration: durationString, // Keep as string, not number
         status: dbStatus, // Use mapped status
-        therapistNotes: sessionData.therapistNotes,
+        therapistNotes: JSON.stringify(sessionData.therapistNodes || []), // NEW: Store structured notes in therapistNotes field
         sessionSummary: sessionData.sessionSummary || '',
         achievement: sessionData.achievement ? JSON.stringify(sessionData.achievement) : null,
         feedback: JSON.stringify(sessionData.feedback || []),
@@ -394,8 +585,8 @@ function SessionEditPageContent() {
       if (isNewSession) {
         // Create new session with auto-generated unique ID
         const newSession = await databases.createDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.collections.sessions,
+          appwriteConfig.databaseId!,
+          appwriteConfig.collections.sessions!,
           'unique()', // Let Appwrite generate unique ID
           {
             ...updateData,
@@ -410,17 +601,16 @@ function SessionEditPageContent() {
       } else {
         // Update existing session
         await databases.updateDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.collections.sessions,
+          appwriteConfig.databaseId!,
+          appwriteConfig.collections.sessions!,
           sessionId,
           updateData
         );
         console.log('✅ Successfully updated session:', sessionId);
       }
       
-      // Success - redirect back to admin with student selected
-      const redirectUrl = studentId ? `/admin?studentId=${studentId}` : '/admin';
-      router.push(redirectUrl);
+      // Success - redirect back to the folder sessions page
+      router.push(getBackUrl());
       
     } catch (error) {
       console.error('Error saving session:', error);
@@ -440,8 +630,7 @@ function SessionEditPageContent() {
               variant="ghost" 
               size="sm" 
               onClick={() => {
-                const redirectUrl = studentId ? `/admin?studentId=${studentId}` : '/admin';
-                router.push(redirectUrl);
+                router.push(getBackUrl());
               }}
               className="hover:bg-gray-100"
             >
@@ -694,6 +883,183 @@ function SessionEditPageContent() {
           </CardContent>
         </Card>
 
+        {/* NEW: Therapist Nodes Section - ADMIN ONLY */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <Stethoscope className="w-6 h-6 mr-3 text-purple-600" />
+                  Θεραπευτικές Σημειώσεις
+                  <Badge variant="outline" className="ml-2 text-xs bg-red-50 text-red-700 border-red-200">
+                    ΙΔΙΩΤΙΚΟ
+                  </Badge>
+                </h2>
+                <Badge variant="secondary" className="text-xs">
+                  {sessionData.therapistNodes.length} σημειώσεις
+                </Badge>
+              </div>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-sm text-red-800 mb-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Αυτές οι σημειώσεις είναι ορατές μόνο στους θεραπευτές και δεν εμφανίζονται στους γονείς.</span>
+                </div>
+                <div className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                  💡 <strong>Αναβάθμιση:</strong> Οι παλαιές απλές σημειώσεις έχουν μετατραπεί σε δομημένες κατηγοριοποιημένες σημειώσεις.
+                </div>
+              </div>
+
+              {/* Add New Node Form */}
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-purple-900 mb-4 flex items-center">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Προσθήκη Νέας Σημείωσης
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-purple-700 mb-2">Τύπος</label>
+                      <select
+                        value={newTherapistNode.type}
+                        onChange={(e) => setNewTherapistNode(prev => ({ ...prev, type: e.target.value as TherapistNode['type'] }))}
+                        className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="clinical">🏥 Κλινική Παρατήρηση</option>
+                        <option value="assessment">📊 Αξιολόγηση</option>
+                        <option value="planning">📋 Σχεδιασμός Θεραπείας</option>
+                        <option value="internal">🔒 Εσωτερική Σημείωση</option>
+                        <option value="observation">👁️ Συμπεριφορική Παρατήρηση</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-700 mb-2">Προτεραιότητα</label>
+                      <select
+                        value={newTherapistNode.priority}
+                        onChange={(e) => setNewTherapistNode(prev => ({ ...prev, priority: e.target.value as TherapistNode['priority'] }))}
+                        className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="low">🟢 Χαμηλή</option>
+                        <option value="medium">🟡 Μέτρια</option>
+                        <option value="high">🔴 Υψηλή</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-purple-700 mb-2">Τίτλος</label>
+                    <Input
+                      value={newTherapistNode.title || ''}
+                      onChange={(e) => setNewTherapistNode(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="π.χ. Πρόοδος στην προφορά του R"
+                      className="border-purple-300 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-purple-700 mb-2">Περιεχόμενο</label>
+                    <Textarea
+                      value={newTherapistNode.content || ''}
+                      onChange={(e) => setNewTherapistNode(prev => ({ ...prev, content: e.target.value }))}
+                      placeholder="Λεπτομερής περιγραφή της παρατήρησης ή σημείωσης..."
+                      className="min-h-[80px] border-purple-300 focus:ring-purple-500"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <Button
+                    onClick={addTherapistNode}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Προσθήκη Σημείωσης
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Existing Nodes */}
+              <div className="space-y-3">
+                {sessionData.therapistNodes.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                    <Stethoscope className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 text-sm font-medium">Δεν υπάρχουν θεραπευτικές σημειώσεις</p>
+                    <p className="text-xs text-gray-500 mt-1">Προσθέστε σημειώσεις που θα είναι ορατές μόνο στους θεραπευτές</p>
+                  </div>
+                ) : (
+                  sessionData.therapistNodes.map((node) => (
+                    <Card key={node.id} className="border-l-4 border-l-purple-500 bg-white hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline"
+                              className={`text-xs ${
+                                node.type === 'clinical' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                node.type === 'assessment' ? 'bg-green-50 text-green-700 border-green-200' :
+                                node.type === 'planning' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                node.type === 'internal' ? 'bg-red-50 text-red-700 border-red-200' :
+                                'bg-purple-50 text-purple-700 border-purple-200'
+                              }`}
+                            >
+                              {node.type === 'clinical' && '🏥 Κλινική'}
+                              {node.type === 'assessment' && '📊 Αξιολόγηση'}
+                              {node.type === 'planning' && '📋 Σχεδιασμός'}
+                              {node.type === 'internal' && '🔒 Εσωτερική'}
+                              {node.type === 'observation' && '👁️ Παρατήρηση'}
+                            </Badge>
+                            
+                            <Badge 
+                              variant="secondary"
+                              className={`text-xs ${
+                                node.priority === 'high' ? 'bg-red-100 text-red-700' :
+                                node.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              }`}
+                            >
+                              {node.priority === 'high' && '🔴 Υψηλή'}
+                              {node.priority === 'medium' && '🟡 Μέτρια'}  
+                              {node.priority === 'low' && '🟢 Χαμηλή'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingNodeId(node.id)}
+                              className="w-8 h-8 p-0"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => deleteTherapistNode(node.id)}
+                              className="w-8 h-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <h4 className="font-medium text-gray-900 mb-2">{node.title}</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed mb-3">{node.content}</p>
+                        
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {new Date(node.timestamp).toLocaleString('el-GR')}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* File Materials Section */}
         <Card>
           <CardContent className="p-6">
@@ -716,6 +1082,7 @@ function SessionEditPageContent() {
                     </Badge>
                   </h3>
                   <Button
+                    disabled={uploadProgress?.isUploading}
                     onClick={() => {
                       const input = document.createElement('input');
                       input.type = 'file';
@@ -727,7 +1094,7 @@ function SessionEditPageContent() {
                           try {
                             for (const file of files) {
                               if (file.type === 'application/pdf') {
-                                const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+                                const uploadedFile = await uploadWithProgress(file, 'pdf') as any;
                                 setSessionData(prev => ({
                                   ...prev,
                                   materials: {
@@ -741,11 +1108,16 @@ function SessionEditPageContent() {
                                     }]
                                   }
                                 }));
+                                
+                                // Reload session files to update the list
+                                setTimeout(() => {
+                                  window.location.reload();
+                                }, 1500);
                               }
                             }
                           } catch (error) {
                             console.error('Error uploading PDF:', error);
-                            alert(`Σφάλμα κατά τη μεταφόρτωση του PDF: ${error.message}`);
+                            alert(`Σφάλμα κατά τη μεταφόρτωση του PDF: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
                           }
                         }
                       };
@@ -827,6 +1199,7 @@ function SessionEditPageContent() {
                     </Badge>
                   </h3>
                   <Button
+                    disabled={uploadProgress?.isUploading}
                     onClick={() => {
                       const input = document.createElement('input');
                       input.type = 'file';
@@ -838,7 +1211,7 @@ function SessionEditPageContent() {
                           try {
                             for (const file of files) {
                               if (file.type.startsWith('video/')) {
-                                const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+                                const uploadedFile = await uploadWithProgress(file, 'video') as any;
                                 setSessionData(prev => ({
                                   ...prev,
                                   materials: {
@@ -852,11 +1225,16 @@ function SessionEditPageContent() {
                                     }]
                                   }
                                 }));
+                                
+                                // Reload session files to update the list
+                                setTimeout(() => {
+                                  window.location.reload();
+                                }, 1500);
                               }
                             }
                           } catch (error) {
                             console.error('Error uploading videos:', error);
-                            alert(`Σφάλμα κατά τη μεταφόρτωση των βίντεο: ${error.message}`);
+                            alert(`Σφάλμα κατά τη μεταφόρτωση των βίντεο: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
                           }
                         }
                       };
@@ -938,6 +1316,7 @@ function SessionEditPageContent() {
                     </Badge>
                   </h3>
                   <Button
+                    disabled={uploadProgress?.isUploading}
                     onClick={() => {
                       const input = document.createElement('input');
                       input.type = 'file';
@@ -949,7 +1328,7 @@ function SessionEditPageContent() {
                           try {
                             for (const file of files) {
                               if (file.type.startsWith('image/')) {
-                                const uploadedFile = await fileService.uploadFile(file, sessionData.id);
+                                const uploadedFile = await uploadWithProgress(file, 'image') as any;
                                 setSessionData(prev => ({
                                   ...prev,
                                   materials: {
@@ -963,11 +1342,16 @@ function SessionEditPageContent() {
                                     }]
                                   }
                                 }));
+                                
+                                // Reload session files to update the list
+                                setTimeout(() => {
+                                  window.location.reload();
+                                }, 1500);
                               }
                             }
                           } catch (error) {
                             console.error('Error uploading images:', error);
-                            alert(`Σφάλμα κατά τη μεταφόρτωση των εικόνων: ${error.message}`);
+                            alert(`Σφάλμα κατά τη μεταφόρτωση των εικόνων: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
                           }
                         }
                       };
@@ -1139,6 +1523,39 @@ function SessionEditPageContent() {
         )}
 
       </div>
+      )}
+
+      {/* Upload Progress Modal */}
+      {uploadProgress && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="flex-shrink-0">
+                {uploadProgress.fileType === 'pdf' && <FileText className="w-6 h-6 text-blue-600" />}
+                {uploadProgress.fileType === 'video' && <Video className="w-6 h-6 text-purple-600" />}
+                {uploadProgress.fileType === 'image' && <ImageIcon className="w-6 h-6 text-green-600" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-lg font-semibold text-gray-900">Μεταφόρτωση αρχείου</h4>
+                <p className="text-sm text-gray-600 truncate">{uploadProgress.fileName}</p>
+              </div>
+              <div className="flex-shrink-0">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Πρόοδος</span>
+                <span className="font-medium text-gray-900">{uploadProgress.progress}%</span>
+              </div>
+              <Progress value={uploadProgress.progress} className="w-full h-2" />
+              <p className="text-xs text-gray-500 text-center">
+                {uploadProgress.progress < 100 ? 'Γίνεται μεταφόρτωση...' : '✅ Μεταφόρτωση ολοκληρώθηκε!'}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* File Preview Modal */}

@@ -1,68 +1,159 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { AdminRoute, useLogout } from "@/lib/auth-middleware";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth-middleware";
 import { databases, appwriteConfig, Query } from "@/lib/appwrite.client";
-import { motion, AnimatePresence } from "framer-motion";
-import EnhancedProgressCard from "@/components/EnhancedProgressCard";
 import { 
+  Users, 
   Search, 
-  Plus, 
-  Clock, 
-  Calendar,
-  ChevronDown,
-  ChevronRight,
-  CheckCircle,
-  Circle,
-  AlertCircle,
-  MessageCircle,
-  BookOpen,
-  User,
-  Edit,
   Trash2,
+  Eye, 
   Phone,
   Mail,
-  X,
-  Users,
-  PlayCircle,
-  Lock
+  Calendar,
+  Baby, 
+  BookOpen, 
+  ArrowLeft,
+  Settings,
+  FolderOpen,
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  Home
 } from "lucide-react";
+import { motion } from "framer-motion";
 
-// Helper function to calculate age from date of birth
+// Greek language constants
+const GREEK_TEXT = {
+  // Header
+  adminTitle: "Διαχείριση Συστήματος",
+  adminSubtitle: "Πλήρης διαχείριση χρηστών και φακέλων συνεδριών",
+  
+  // Navigation
+  back: "Πίσω",
+  userList: "Λίστα Χρηστών", 
+  oldAdmin: "Παλιό Σύστημα",
+  
+  // Folder Manager
+  sessionFolders: "Φάκελοι Συνεδριών",
+  folderSessions: "Συνεδρίες Φακέλου",
+  manageFolders: "Διαχείριση φακέλων συνεδριών για οργανωμένες θεραπευτικές περιόδους",
+  viewingSessions: "Προβολή συνεδριών στο",
+  
+  // Search  
+  searchPlaceholder: "Αναζήτηση χρηστών, email, τηλέφωνο ή όνομα παιδιού...",
+  refresh: "Ανανέωση",
+  loading: "Φόρτωση...",
+  
+  // User Info
+  children: "παιδί/ά",
+  sessions: "συνεδρίες", 
+  details: "Λεπτομέρειες",
+  
+  // No Data
+  noUsersFound: "Δεν βρέθηκαν χρήστες",
+  noUsers: "Δεν υπάρχουν χρήστες",
+  
+  // Parent Details
+  parentDetails: "Στοιχεία Γονέα",
+  fullName: "Πλήρες Όνομα",
+  email: "Email",
+  phone: "Τηλέφωνο", 
+  registrationDate: "Ημερομηνία Εγγραφής",
+  userId: "ID Χρήστη",
+  address: "Διεύθυνση",
+  notProvided: "Δεν δόθηκε",
+  
+  // Statistics
+  totalSessions: "Σύνολο Συνεδριών",
+  activeChildren: "Ενεργά Παιδιά",
+  totalUsers: "Σύνολο Χρηστών",
+  totalChildren: "Σύνολο Παιδιών", 
+  activeParents: "Ενεργοί Γονείς",
+  
+  // Children Details
+  childrenDetails: "Στοιχεία Παιδιών",
+  noChildren: "Δεν έχουν καταχωρηθεί παιδιά",
+  childrenWillAppear: "Τα παιδιά θα εμφανιστούν εδώ όταν προστεθούν στο σύστημα",
+  age: "Ηλικία", 
+  yearsOld: "ετών",
+  status: "Κατάσταση",
+  active: "Ενεργό",
+  inactive: "Ανενεργό",
+  joinDate: "Ημ. Εγγραφής",
+  studentId: "ID Μαθητή",
+  dateOfBirth: "Ημερομηνία Γέννησης",
+  manageSessionFolders: "Διαχείριση Φακέλων Συνεδριών",
+  
+  // Quick Actions
+  quickActions: "Γρήγορες Ενέργειες",
+  fullDetails: "Πλήρη Στοιχεία", 
+  addChild: "Προσθήκη Παιδιού",
+  call: "Κλήση",
+  emailAction: "Email",
+  
+  // Confirmation
+  confirmDelete: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον χρήστη; Αυτή η ενέργεια θα διαγράψει όλα τα δεδομένα του και δεν μπορεί να αναιρεθεί.",
+  
+  // Errors
+  errorFetchingUsers: "Αποτυχία φόρτωσης χρηστών",
+  errorDeletingUser: "Αποτυχία διαγραφής χρήστη", 
+  errorOccurred: "Προέκυψε σφάλμα κατά τη διαγραφή"
+};
+
+// Helper function to calculate age
 const calculateAge = (dateOfBirth: string): number => {
   if (!dateOfBirth) return 0;
   
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const birth = new Date(dateOfBirth);
+  if (isNaN(birth.getTime())) return 0;
   
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
   
-  return age;
+  return Math.max(0, age);
 };
 
-// TypeScript interfaces for real data
+interface UserExtended {
+  $id: string;
+  userId: string;
+  name?: string;
+  email?: string;
+  phone: string;
+  address?: string;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+interface AppwriteUser {
+  $id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  registration: string;
+  status: boolean;
+}
+
 interface Student {
   $id: string;
   name: string;
-  age: number; // Legacy field - will be removed
-  dateOfBirth?: string; // New field for age calculation
+  age?: number;
+  dateOfBirth?: string;
+  parentId: string;
   status: string;
-  totalSessions: number;
-  completedSessions: number;
-  clientCode: string;
+  totalSessions?: number;
+  completedSessions?: number;
   joinDate: string;
-  parentContact: string;
-  $createdAt: string;
 }
 
 interface Session {
@@ -70,810 +161,628 @@ interface Session {
   studentId: string;
   sessionNumber: number;
   title: string;
-  description: string;
   date: string;
-  duration: string;
   status: string;
+  duration: string;
   isPaid: boolean;
-  therapistNotes?: string;
-  $createdAt: string;
 }
 
-function AdminPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const logout = useLogout();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("journey");
-  const [showStudentSelector, setShowStudentSelector] = useState(false);
+interface UserWithDetails extends AppwriteUser {
+  extendedData?: UserExtended;
+  children: Student[];
+  sessions: Session[];
+  totalSessions: number;
+}
+
+
+
+function AdminPage() {
+  const [users, setUsers] = useState<UserWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState("");
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalSessions, setTotalSessions] = useState(0);
-  const [completedSessions, setCompletedSessions] = useState(0);
-  const [sessionsPerPage] = useState(12);
-  const [loadingPage, setLoadingPage] = useState(false);
-  const [studentsListLoaded, setStudentsListLoaded] = useState(false);
+  const { user, isAuthenticated, isAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
 
-  // Load sessions for student with pagination
-  const loadSessionsForStudent = useCallback(async (studentId: string, page: number = 1) => {
-    try {
-      setLoadingPage(page !== 1); // Show loading for page changes, not initial load
-      
-      // First, get total count of sessions for this student
-      const totalCountResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          Query.equal('studentId', studentId),
-          Query.limit(1) // We just need the total count
-        ]
-      );
-      
-      const totalCount = totalCountResponse.total;
-      setTotalSessions(totalCount);
-      setTotalPages(Math.ceil(totalCount / sessionsPerPage));
-      
-      // Get count of completed sessions
-      const completedCountResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          Query.equal('studentId', studentId),
-          Query.equal('status', 'completed'),
-          Query.limit(1) // We just need the total count
-        ]
-      );
-      
-      setCompletedSessions(completedCountResponse.total);
-      
-      // Then get the paginated sessions
-      const offset = (page - 1) * sessionsPerPage;
-      const sessionsResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          Query.equal('studentId', studentId),
-          Query.orderAsc('sessionNumber'),
-          Query.limit(sessionsPerPage),
-          Query.offset(offset)
-        ]
-      );
-      
-      console.log(`Loaded ${sessionsResponse.documents.length} sessions for student: ${studentId} (page ${page})`);
-      setSessions(sessionsResponse.documents as Session[]);
-      setCurrentPage(page);
-      
-    } catch (error) {
-      console.error('Error loading sessions:', error);
-    } finally {
-      setLoadingPage(false);
+  // Redirect if not authenticated or not admin
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated || !isAdmin) {
+        router.push("/login");
+      }
     }
-  }, [sessionsPerPage]);
+  }, [isAuthenticated, isAdmin, authLoading, router]);
 
-  // Main data loading function - simplified to avoid circular dependencies
-  const loadData = useCallback(async () => {
+  const fetchUsers = async () => {
     try {
       setLoading(true);
+      setError("");
+
+      // Get all users from users_extended
+      const usersExtendedCollectionId = appwriteConfig.collections.usersExtended || '68aef5f19770fc264f6d';
+      const databaseId = appwriteConfig.databaseId || '68ab99977aad1233b50c';
       
-      // Debug: Check environment variables
-      console.log('🔍 Checking Appwrite config:', {
-        databaseId: appwriteConfig.databaseId,
-        studentsCollection: appwriteConfig.collections.students,
-        endpoint: appwriteConfig.endpoint
-      });
-      
-      // Check if we have a student ID from URL
-      const studentIdFromUrl = searchParams.get('studentId');
-      console.log('🔍 Student ID from URL:', studentIdFromUrl);
-      
-      if (studentIdFromUrl) {
-        // Load only the selected student from URL
-        try {
-          console.log('🔄 Loading selected student from URL...');
-          const studentResponse = await databases.getDocument(
-            appwriteConfig.databaseId!,
-            appwriteConfig.collections.students!,
-            studentIdFromUrl
-          );
-          
-          const student = studentResponse as Student;
-          console.log('✅ Loaded selected student:', student.name);
-          setSelectedStudent(student);
-          await loadSessionsForStudent(studentIdFromUrl, 1);
-          
-        } catch (error) {
-          console.error('❌ Error loading selected student:', error);
-          // If student not found, load students list as fallback
-          await loadStudentsList();
+      const usersExtendedResult = await databases.listDocuments(
+        databaseId,
+        usersExtendedCollectionId,
+        [Query.orderDesc('createdAt'), Query.limit(100)]
+      );
+
+      // Get all students to count children per parent
+      const studentsCollectionId = appwriteConfig.collections.students || '68ac213b9a91cd95a008';
+      const studentsResult = await databases.listDocuments(
+        databaseId,
+        studentsCollectionId,
+        [Query.limit(1000)]
+      );
+
+      // Get all sessions to count total sessions per parent
+      const sessionsCollectionId = appwriteConfig.collections.sessions || '68ab99a82b7fbc5dd564';
+      const sessionsResult = await databases.listDocuments(
+        databaseId,
+        sessionsCollectionId,
+        [Query.limit(1000)]
+      );
+
+      // Group students by parentId
+      const studentsByParent = studentsResult.documents.reduce((acc, student) => {
+        const typedStudent = student as unknown as Student;
+        if (typedStudent.parentId) {
+          if (!acc[typedStudent.parentId]) acc[typedStudent.parentId] = [];
+          acc[typedStudent.parentId].push(typedStudent);
         }
-      } else {
-        // Load students list to get the first one
-        console.log('🔄 Loading students list...');
-        await loadStudentsList();
-      }
+        return acc;
+      }, {} as Record<string, Student[]>);
+
+      // Count sessions per parent
+      const sessionsByParent = sessionsResult.documents.reduce((acc, session) => {
+        const student = studentsResult.documents.find(s => s.$id === session.studentId) as unknown as Student;
+        if (student && student.parentId) {
+          if (!acc[student.parentId]) acc[student.parentId] = 0;
+          acc[student.parentId]++;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Build user list with details
+      const usersWithDetails: UserWithDetails[] = usersExtendedResult.documents.map((extData) => {
+        const typedExtData = extData as unknown as UserExtended;
+        const rawChildren = studentsByParent[typedExtData.userId] || [];
+        
+        const userChildren = rawChildren.map(child => {
+          const typedChild = child as unknown as Student;
+          return {
+            ...typedChild,
+            age: typedChild.dateOfBirth ? calculateAge(typedChild.dateOfBirth) : (typedChild.age || 0)
+          };
+        });
+        
+        return {
+          $id: typedExtData.userId,
+          name: typedExtData.name || 
+            (userChildren.length > 0 ? 
+              `Γονέας του ${userChildren[0].name}` : 
+              `Χρήστης ${typedExtData.userId.slice(-8)}`),
+          email: typedExtData.email || `${typedExtData.phone}@example.com`,
+          phone: typedExtData.phone,
+          registration: typedExtData.createdAt,
+          status: true,
+          extendedData: typedExtData,
+          children: userChildren,
+          sessions: [], // Will be loaded when needed
+          totalSessions: sessionsByParent[typedExtData.userId] || 0
+        };
+      });
+
+      setUsers(usersWithDetails);
       
     } catch (error) {
-      console.error('❌ Error loading data:', error);
-      console.error('Full error details:', error);
+      console.error("Error fetching users:", error);
+      setError(GREEK_TEXT.errorFetchingUsers);
     } finally {
       setLoading(false);
     }
-    
-    // Helper function to load students list
-    async function loadStudentsList() {
-      try {
-        console.log('🔄 Fetching students from database...');
-        const studentsResponse = await databases.listDocuments(
-          appwriteConfig.databaseId!,
-          appwriteConfig.collections.students!,
-          [Query.orderDesc('$createdAt')]
-        );
-        
-        const studentsData = studentsResponse.documents as Student[];
-        console.log(`✅ Loaded ${studentsData.length} students:`, studentsData.map(s => s.name));
-        setStudents(studentsData);
-        setStudentsListLoaded(true);
-        
-        // If no selected student, select the first one
-        if (studentsData.length > 0) {
-          console.log('🎯 Auto-selecting first student:', studentsData[0].name);
-          setSelectedStudent(studentsData[0]);
-          await loadSessionsForStudent(studentsData[0].$id, 1);
-        } else {
-          console.log('⚠️ No students found in database');
-        }
-      } catch (error) {
-        console.error('❌ Error loading students list:', error);
-        console.error('Students list error details:', error);
-      }
-    }
-  }, [searchParams, loadSessionsForStudent]);
+  };
 
-  // Load students list when student selector is opened
-  const loadStudentsListExternal = useCallback(async () => {
-    try {
-      if (!studentsListLoaded) {
-        console.log('🔄 Loading students for selector...');
-        const studentsResponse = await databases.listDocuments(
-          appwriteConfig.databaseId!,
-          appwriteConfig.collections.students!,
-          [Query.orderDesc('$createdAt')]
-        );
-        
-        const studentsData = studentsResponse.documents as Student[];
-        console.log(`✅ Loaded ${studentsData.length} students for selector`);
-        setStudents(studentsData);
-        setStudentsListLoaded(true);
-      } else {
-        console.log('ℹ️ Students already loaded, skipping...');
-      }
-    } catch (error) {
-      console.error('❌ Error loading students list for selector:', error);
-    }
-  }, [studentsListLoaded]);
-
-  // Load data from Appwrite - run only once on mount
   useEffect(() => {
-    loadData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Filter students based on search query
-  const filteredStudents = useMemo(() => {
-    return students.filter(student => 
-      student.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, students]);
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'available':
-        return <Circle className="w-4 h-4 text-blue-500" />;
-      case 'locked':
-        return <Circle className="w-4 h-4 text-gray-400" />;
-      case 'canceled':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Circle className="w-4 h-4 text-gray-400" />;
+    if (isAuthenticated && isAdmin) {
+      fetchUsers();
     }
-  };
+  }, [isAuthenticated, isAdmin]);
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Ολοκληρωμένη';
-      case 'available':
-        return 'Διαθέσιμη';
-      case 'locked':
-        return 'Κλειδωμένη';
-      case 'canceled':
-        return 'Ακυρωμένη';
-      default:
-        return 'Άγνωστη';
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm(GREEK_TEXT.confirmDelete)) {
+      return;
     }
-  };
 
-  const handleEditSession = useCallback((sessionId: string) => {
-    const studentParam = selectedStudent ? `?studentId=${selectedStudent.$id}` : '';
-    router.push(`/admin/edit/${sessionId}${studentParam}`);
-  }, [router, selectedStudent]);
+    setDeletingUserId(userId);
+    setError("");
 
-  const handleStudentSelect = useCallback(async (student: Student) => {
-    setSelectedStudent(student);
-    setShowStudentSelector(false);
-    
-    // Reset pagination to first page
-    setCurrentPage(1);
-    await loadSessionsForStudent(student.$id, 1);
-    
-    // Update URL to reflect selected student
-    const newUrl = `/admin?studentId=${student.$id}`;
-    window.history.replaceState(null, '', newUrl);
-  }, [loadSessionsForStudent]);
-
-  // Pagination handlers
-  const handlePreviousPage = useCallback(async () => {
-    if (currentPage > 1 && selectedStudent) {
-      const newPage = currentPage - 1;
-      await loadSessionsForStudent(selectedStudent.$id, newPage);
-    }
-  }, [currentPage, selectedStudent, loadSessionsForStudent]);
-
-  const handleNextPage = useCallback(async () => {
-    if (currentPage < totalPages && selectedStudent) {
-      const newPage = currentPage + 1;
-      await loadSessionsForStudent(selectedStudent.$id, newPage);
-    }
-  }, [currentPage, totalPages, selectedStudent, loadSessionsForStudent]);
-
-  // URL parameter handling is now done in loadData() to avoid infinite loops
-  // This effect was causing circular dependencies and infinite re-renders
-
-  // Load students list when student selector is opened
-  const handleOpenStudentSelector = useCallback(async () => {
-    setShowStudentSelector(true);
-    if (!studentsListLoaded) {
-      await loadStudentsListExternal();
-    }
-  }, [studentsListLoaded, loadStudentsListExternal]);
-
-  const handleCreateNewStudent = useCallback(() => {
-    router.push('/admin/create-student');
-  }, [router]);
-
-  const handleCreateNewSession = useCallback(() => {
-    if (selectedStudent) {
-      // Create new session with timestamp as ID and redirect to edit page
-      const newSessionId = Date.now().toString();
-      const studentParam = `?studentId=${selectedStudent.$id}`;
-      router.push(`/admin/edit/${newSessionId}${studentParam}`);
-    }
-  }, [router, selectedStudent]);
-
-  // Parse parent contact info
-  const getParentContact = useCallback((parentContactString: string) => {
     try {
-      return JSON.parse(parentContactString);
-    } catch {
-      return { name: 'Άγνωστος', email: '', phone: '' };
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        await fetchUsers();
+      } else {
+        setError(result.error || GREEK_TEXT.errorDeletingUser);
+      }
+
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setError(GREEK_TEXT.errorOccurred);
+    } finally {
+      setDeletingUserId(null);
     }
-  }, []);
+  };
 
-  // Mobile Student Selector Component
-  const MobileStudentSelector = () => (
-    <AnimatePresence>
-      {showStudentSelector && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center sm:justify-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowStudentSelector(false);
-          }}
-        >
-          <motion.div
-            initial={{ y: "100%", opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0 }}
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:w-[90%] sm:max-w-md h-[85vh] sm:h-auto sm:max-h-[80vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 sm:p-6 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Επιλογή Μαθητή</h2>
-                <button
-                  onClick={() => setShowStudentSelector(false)}
-                  className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-            </div>
+  const toggleUserExpansion = (userId: string) => {
+    const newExpanded = new Set(expandedUsers);
+    if (newExpanded.has(userId)) {
+      newExpanded.delete(userId);
+    } else {
+      newExpanded.add(userId);
+    }
+    setExpandedUsers(newExpanded);
+  };
 
-            {/* Search */}
-              <div className="mt-4 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Αναζήτηση μαθητή..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:bg-white/30"
-                />
-              </div>
-            </div>
+  // Navigation functions
+  const goToFolderManager = (user: UserWithDetails, student: Student) => {
+    // Navigate to dedicated student folders page
+    router.push(`/admin/students/${student.$id}/folders`);
+  };
 
-            {/* Student List */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {filteredStudents.map((student, index) => (
-                <motion.div
-                  key={student.$id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => handleStudentSelect(student)}
-                  className={`p-4 rounded-xl mb-3 cursor-pointer transition-all ${
-                    selectedStudent?.$id === student.$id 
-                      ? 'bg-blue-50 border-2 border-blue-200' 
-                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {student.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{student.name}</h3>
-                      <p className="text-sm text-gray-600">{student.dateOfBirth ? calculateAge(student.dateOfBirth) : student.age} ετών • {student.completedSessions}/{student.totalSessions} συνεδρίες</p>
-                      </div>
-                    {selectedStudent?.$id === student.$id && (
-                      <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+  const filteredUsers = users.filter(user =>
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.phone?.includes(searchTerm) ||
+    user.children.some(child => child.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  if (loading) {
+  // Show loading while checking auth
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-sky-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Φόρτωση δεδομένων...</p>
+          <p className="mt-4 text-gray-600">{GREEK_TEXT.loading}</p>
         </div>
       </div>
     );
   }
 
-  // Show "no students" state if loading is complete but no students found
-  if (!loading && (!students || students.length === 0)) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-sky-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Δεν υπάρχουν μαθητές</h3>
-          <p className="text-gray-600 mb-6">Δημιουργήστε τον πρώτο μαθητή για να ξεκινήσετε</p>
-          <Button onClick={handleCreateNewStudent} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Νέος Μαθητής
-          </Button>
-        </div>
-      </div>
-    );
+  if (!isAuthenticated || !isAdmin) {
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-sky-50 relative overflow-hidden">
-      {/* Large Static Glows - Different positioning for admin */}
-      <div className="absolute top-0 left-0 w-[750px] h-[750px] bg-gradient-to-br from-indigo-200/25 to-transparent rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-0 w-[650px] h-[650px] bg-gradient-to-tl from-blue-200/30 to-transparent rounded-full blur-3xl" />
-      <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-gradient-to-br from-sky-200/20 to-transparent rounded-full blur-3xl" />
-      
-      <div className="relative z-10">
-      {/* Mobile Student Selector Modal */}
-      <MobileStudentSelector />
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-gray-900">Πάνελ Διαχειριστή</h1>
-                </div>
-
-            {/* Student Selector - Desktop */}
-            {activeTab === "journey" && selectedStudent && (
-              <div className="hidden lg:flex items-center space-x-4">
-                <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                    {selectedStudent.name.charAt(0)}
-                    </div>
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-900">{selectedStudent.name}</p>
-                    <p className="text-gray-600">{selectedStudent.dateOfBirth ? calculateAge(selectedStudent.dateOfBirth) : selectedStudent.age} ετών</p>
-                    </div>
-                              <Button
-              variant="ghost" 
-                                size="sm"
-                    onClick={handleOpenStudentSelector}
-                    className="ml-2"
-                              >
-                    <ChevronDown className="w-4 h-4" />
-                              </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 p-3 sm:p-4 lg:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Mobile-Friendly Header */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        {/* Back button and title */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 flex items-center gap-2 sm:gap-3">
+                  <Users className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-blue-600 flex-shrink-0" />
+                  <span className="leading-tight">
+                    {GREEK_TEXT.adminTitle}
+                  </span>
+                </h1>
+                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                  {GREEK_TEXT.adminSubtitle}
+                </p>
                     </div>
                   </div>
-                    )}
 
-            {/* Student Selector - Mobile */}
-            {activeTab === "journey" && selectedStudent && (
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2 sm:gap-3">
                             <Button
-                variant="ghost"
+                onClick={() => router.push("/dashboard")}
+                variant="outline"
                               size="sm"
-                onClick={handleOpenStudentSelector}
-                className="lg:hidden"
+                className="flex items-center gap-2 px-3 py-2 min-h-[44px] flex-1 sm:flex-none justify-center"
               >
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                    {selectedStudent.name.charAt(0)}
-                          </div>
-                  <ChevronDown className="w-4 h-4" />
-                    </div>
+                <Home className="w-4 h-4" />
+                <span className="text-sm font-medium">Dashboard</span>
               </Button>
-            )}
-
-            {/* Logout Button */}
-            <Button onClick={logout} variant="outline" className="ml-4">
-              Αποσύνδεση
+              <Button
+                onClick={() => router.push("/admin/users")}
+                variant="outline" 
+                size="sm"
+                className="flex items-center gap-2 px-3 py-2 min-h-[44px] flex-1 sm:flex-none justify-center"
+              >
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">{GREEK_TEXT.userList}</span>
             </Button>
                           </div>
                     </div>
                   </div>
+
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm sm:text-base"
+          >
+            {error}
+          </motion.div>
+        )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation Tabs */}
-        <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab("journey")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "journey"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <BookOpen className="w-4 h-4 inline mr-2" />
-              Πορεία Θεραπείας
-            </button>
-        <button
-              onClick={() => setActiveTab("students")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "students"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              Μαθητές
-        </button>
-                  <button
-              onClick={() => router.push('/admin/messages')}
-              className="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm"
-            >
-              <MessageCircle className="w-4 h-4 inline mr-2" />
-              Μηνύματα
-                  </button>
-          </nav>
+        <div className="space-y-4 sm:space-y-6">
+              {/* Search */}
+              <Card>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder={GREEK_TEXT.searchPlaceholder}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 h-12 text-base"
+                      />
+                    </div>
+                    <Button 
+                      onClick={fetchUsers} 
+                      disabled={loading}
+                      className="min-h-[48px] px-6 flex-shrink-0"
+                    >
+                      {loading ? GREEK_TEXT.loading : GREEK_TEXT.refresh}
+                    </Button>
                 </div>
+                </CardContent>
+              </Card>
 
-        {/* Tab Content */}
-              <div className="space-y-6">
-          {activeTab === "journey" && selectedStudent && (
-        <div className="space-y-8 pb-8 md:pb-0">
-          {/* Journey Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-              <h2 className="text-2xl font-bold text-gray-900">Πορεία Θεραπείας</h2>
-              <p className="text-gray-600">Διαχειριστείτε τις συνεδρίες του μαθητή σας</p>
+              {/* Users List */}
+              {loading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-                <Button onClick={handleCreateNewSession} className="bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Νέα Συνεδρία
-            </Button>
+              ) : filteredUsers.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 sm:p-12 text-center">
+                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {searchTerm ? GREEK_TEXT.noUsersFound : GREEK_TEXT.noUsers}
+                    </h3>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {filteredUsers.map((user) => (
+                    <Card key={user.$id} className="hover:shadow-lg transition-all duration-200 active:scale-[0.98] sm:active:scale-100">
+                      <CardContent className="p-0">
+                        {/* User Header - Mobile Optimized */}
+                        <div className="p-4 sm:p-6 border-b border-gray-100">
+                          <div className="flex items-start sm:items-center justify-between gap-3">
+                            <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate">{user.name}</h3>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600 mt-1">
+                                  <span className="flex items-center gap-1 truncate">
+                                    <Mail className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{user.email}</span>
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="w-3 h-3 flex-shrink-0" />
+                                    {user.phone}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Baby className="w-3 h-3 flex-shrink-0" />
+                                    {user.children.length} {GREEK_TEXT.children}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <BookOpen className="w-3 h-3 flex-shrink-0" />
+                                    {user.totalSessions} {GREEK_TEXT.sessions}
+                                  </span>
+                                </div>
+                              </div>
                       </div>
                       
-          <EnhancedProgressCard
-            studentName={selectedStudent.name}
-            completedSessions={completedSessions}
-            totalSessions={totalSessions}
-            remainingSessions={totalSessions - completedSessions}
-            streak={selectedStudent.streak || 0}
-            level={selectedStudent.level || "Αρχάριος"}
-            achievements={selectedStudent.achievements || []}
-          />
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white rounded-lg border p-4">
-              <div className="flex items-center space-x-2">
+                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                 <Button
+                                onClick={() => toggleUserExpansion(user.$id)}
                   variant="outline"
                   size="sm"
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1 || loadingPage}
-                  className="flex items-center space-x-1"
-                >
-                  <ChevronRight className="w-4 h-4 rotate-180" />
-                  <span>Προηγούμενη</span>
+                                className="flex items-center gap-1 px-2 sm:px-3 py-2 min-h-[40px] text-xs sm:text-sm"
+                              >
+                                {expandedUsers.has(user.$id) ? (
+                                  <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                                ) : (
+                                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                                )}
+                                <span>{GREEK_TEXT.details}</span>
                 </Button>
+                              
                 <Button
+                                onClick={() => handleDeleteUser(user.$id)}
                   variant="outline"
                   size="sm"
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages || loadingPage}
-                  className="flex items-center space-x-1"
-                >
-                  <span>Επόμενη</span>
-                  <ChevronRight className="w-4 h-4" />
+                                disabled={deletingUserId === user.$id}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 px-2 sm:px-3 py-2 min-h-[40px]"
+                              >
+                                {deletingUserId === user.$id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-red-600"></div>
+                                ) : (
+                                  <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                )}
                 </Button>
             </div>
-            
-              <div className="flex items-center space-x-4">
-                {loadingPage && (
-                  <div className="flex items-center space-x-2 text-blue-600">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-sm">Φόρτωση...</span>
                 </div>
-                )}
-                <span className="text-sm text-gray-600">
-                  Σελίδα {currentPage} από {totalPages}
-                </span>
-                <span className="text-xs text-gray-500">
-                  ({sessions.length} από {totalSessions} συνεδρίες)
-                </span>
               </div>
-                </div>
-          )}
 
-          {/* Timeline */}
-          <div className="relative px-2 md:px-0">
-            {/* Timeline Line */}
-            <div className="absolute left-5 md:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500 opacity-30"></div>
-            
-            {/* Progress Line */}
+                        {/* Expanded User Details - Mobile Optimized */}
+                          {expandedUsers.has(user.$id) && (
             <motion.div 
-              className="absolute left-5 md:left-8 top-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"
-              initial={{ height: 0 }}
-              animate={{ 
-                    height: totalSessions > 0 ? `${(completedSessions / totalSessions) * 100}%` : '0%'
-              }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-            />
-
-            {/* Session Cards */}
-            <div className="space-y-6 md:space-y-8 pb-32 md:pb-8">
-                  {sessions.map((session, index) => (
-            <motion.div
-                      key={session.$id}
-                initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-              className="relative"
-            >
-                {/* Timeline Node */}
-              <div className="absolute left-0 flex items-center">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.4, delay: index * 0.1 + 0.3 }}
-                    className={`
-                      w-10 h-10 md:w-16 md:h-16 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-[5] md:z-10
-                  ${session.status === "completed" 
-                    ? "bg-gradient-to-br from-green-400 to-green-600" 
-                              : session.status === "cancelled"
-                    ? "bg-gradient-to-br from-red-400 to-red-600"
-                    : "bg-gradient-to-br from-gray-300 to-gray-500"
-                  }
-                    `}
-                  >
-                    {session.status === "completed" ? (
-                      <CheckCircle className="w-5 h-5 md:w-8 md:h-8 text-white" />
-                          ) : session.status === "cancelled" ? (
-                      <X className="w-5 h-5 md:w-8 md:h-8 text-white" />
-                    ) : (
-                      <Lock className="w-4 h-4 md:w-6 md:h-6 text-white" />
-                    )}
-                  </motion.div>
-              </div>
-
-                {/* Session Card */}
-                <div className="ml-16 md:ml-24">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Card 
-                      className={`
-                        overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer group
-                        ${session.status === "completed" 
-                          ? "bg-gradient-to-br from-white to-green-50/30 border-green-200/50 hover:border-green-300" 
-                                : session.status === "cancelled"
-                          ? "bg-gradient-to-br from-white to-red-50/30 border-red-200/50 hover:border-red-300"
-                          : "bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200/50 hover:border-gray-300"
-                        }
-                      `}
-                            onClick={(e) => {
-                        e.preventDefault();
-                              e.stopPropagation();
-                              handleEditSession(session.$id);
-                            }}
-                    >
-                      <div className="px-4 md:px-6 py-4 md:py-5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            {/* Main session info */}
-                            <div className="flex items-center flex-wrap gap-2 mb-2">
-                              <h4 className="font-semibold text-gray-900 text-base md:text-lg group-hover:text-blue-700 transition-colors">
-                                      Συνεδρία {session.sessionNumber}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="p-4 sm:p-6 bg-gray-50 space-y-4 sm:space-y-6">
+                                {/* Parent Details Card - Mobile Optimized */}
+                                <div>
+                                  <h4 className="font-medium text-gray-900 mb-3 flex items-center text-sm sm:text-base">
+                                    <Users className="w-4 h-4 mr-2 text-blue-600" />
+                                    {GREEK_TEXT.parentDetails}
                               </h4>
-                              <Badge 
-                                variant={session.isPaid ? "default" : "destructive"}
-                                className={`text-xs ${session.isPaid ? "bg-green-100 text-green-800 border-green-300" : ""}`}
-                              >
-                                {session.isPaid ? "Πληρωμένη" : "Απλήρωτη"}
-                              </Badge>
+                                  <Card className="bg-white">
+                                    <CardContent className="p-3 sm:p-4">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.fullName}</label>
+                                            <p className="font-medium text-gray-900 text-sm sm:text-base">{user.name}</p>
                       </div>
-
-                            <h5 className="font-medium text-gray-700 text-sm md:text-base mb-2 group-hover:text-gray-900 transition-colors line-clamp-1">
-                              {session.title}
-                            </h5>
-                            
-                            {/* Essential metadata */}
-                            <div className="flex items-center space-x-3 text-xs md:text-sm text-gray-600">
-                        <span className="flex items-center">
-                                <Calendar className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                          {new Date(session.date).toLocaleDateString('el-GR')}
-                        </span>
-                        <span className="flex items-center">
-                                <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                                      {session.duration} λεπτά
-                        </span>
+                                          <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.email}</label>
+                                            <p className="font-medium text-gray-900 flex items-center text-sm sm:text-base break-all">
+                                              <Mail className="w-3 h-3 mr-2 text-gray-400 flex-shrink-0" />
+                                              {user.email}
+                                            </p>
                       </div>
-
-                            {session.status === "locked" && (
-                              <div className="text-center py-3 mt-2">
-                                <Lock className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                                <p className="text-xs text-gray-500">Ολοκληρώστε τις προηγούμενες συνεδρίες για ξεκλείδωμα</p>
+                                          <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.phone}</label>
+                                            <p className="font-medium text-gray-900 flex items-center text-sm sm:text-base">
+                                              <Phone className="w-3 h-3 mr-2 text-gray-400 flex-shrink-0" />
+                                              {user.phone}
+                                            </p>
                         </div>
-                      )}
                         </div>
-
-                          {/* Hover indicator */}
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
-                            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.registrationDate}</label>
+                                            <p className="font-medium text-gray-900 flex items-center text-sm sm:text-base">
+                                              <Calendar className="w-3 h-3 mr-2 text-gray-400 flex-shrink-0" />
+                                              {new Date(user.registration).toLocaleDateString('el-GR')}
+                                            </p>
                           </div>
+                                          <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.userId}</label>
+                                            <p className="font-mono text-xs sm:text-sm text-gray-600 break-all">{user.$id}</p>
                         </div>
+                                          <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.address}</label>
+                                            <p className="font-medium text-gray-900 text-sm sm:text-base">
+                                              {user.extendedData?.address || GREEK_TEXT.notProvided}
+                                            </p>
                       </div>
-                </Card>
-            </motion.div>
                       </div>
-                    </motion.div>
-            ))}
                 </div>
+                                      
+                                      {/* Statistics - Mobile Grid */}
+                                      <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                                          <div>
+                                            <p className="text-lg sm:text-xl font-bold text-blue-600">{user.children.length}</p>
+                                            <p className="text-xs text-gray-600">{GREEK_TEXT.children}</p>
               </div>
+                                          <div>
+                                            <p className="text-lg sm:text-xl font-bold text-green-600">{user.totalSessions}</p>
+                                            <p className="text-xs text-gray-600">{GREEK_TEXT.totalSessions}</p>
         </div>
-      )}
+                                          <div>
+                                            <p className="text-lg sm:text-xl font-bold text-orange-600">
+                                              {user.children.filter(c => c.status === 'active').length}
+                                            </p>
+                                            <p className="text-xs text-gray-600">{GREEK_TEXT.activeChildren}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </div>
 
-          {activeTab === "students" && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                {/* Children Details - Mobile Optimized */}
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Διαχείριση Μαθητών</h2>
-                  <p className="text-gray-600">Διαχειριστείτε τους μαθητές σας και τα στοιχεία τους</p>
+                                  <h4 className="font-medium text-gray-900 mb-3 flex items-center text-sm sm:text-base">
+                                    <Baby className="w-4 h-4 mr-2 text-green-600" />
+                                    {GREEK_TEXT.childrenDetails} ({user.children.length})
+                                  </h4>
+                                  {user.children.length === 0 ? (
+                                    <Card className="bg-white">
+                                      <CardContent className="p-6 sm:p-8 text-center">
+                                        <Baby className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
+                                        <p className="text-gray-600 text-sm sm:text-base">{GREEK_TEXT.noChildren}</p>
+                                        <p className="text-xs sm:text-sm text-gray-500 mt-1">{GREEK_TEXT.childrenWillAppear}</p>
+                                      </CardContent>
+                                    </Card>
+                                  ) : (
+                                    <div className="space-y-4">
+                                      {user.children.map((child) => (
+                                        <Card key={child.$id} className="bg-white">
+                                          <CardContent className="p-3 sm:p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+                                                  <Baby className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 </div>
-                <Button onClick={handleCreateNewStudent} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Νέος Μαθητής
-                </Button>
+                                                <h5 className="font-semibold text-gray-900 text-sm sm:text-base">{child.name}</h5>
+                                              </div>
+                                              <Badge variant={child.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                                                {child.status === 'active' ? GREEK_TEXT.active : GREEK_TEXT.inactive}
+                                              </Badge>
               </div>
 
-              {/* Students Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {students.map((student) => {
-                  const parentContact = getParentContact(student.parentContact);
-                  return (
-                    <Card key={student.$id} className="hover:shadow-lg transition-shadow">
-                      <CardContent className="p-6">
-                        {/* Student card header */}
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                              {student.name.charAt(0)}
+                                            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4">
+                                              <div>
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.age}</label>
+                                                <p className="font-medium text-gray-900 text-sm">{child.age} {GREEK_TEXT.yearsOld}</p>
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-900">{student.name}</h3>
-                              <p className="text-sm text-gray-600">{student.dateOfBirth ? calculateAge(student.dateOfBirth) : student.age} ετών</p>
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.status}</label>
+                                                <p className="font-medium text-gray-900 capitalize text-sm">{child.status === 'active' ? GREEK_TEXT.active : GREEK_TEXT.inactive}</p>
                             </div>
+                                              <div>
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.joinDate}</label>
+                                                <p className="font-medium text-gray-900 text-sm">{new Date(child.joinDate).toLocaleDateString('el-GR')}</p>
                           </div>
-                          <Badge className="bg-green-100 text-green-800">
-                            Ενεργός
-                          </Badge>
+                                              <div>
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.studentId}</label>
+                                                <p className="font-mono text-xs text-gray-600">{child.$id.slice(-8)}</p>
+                                              </div>
                         </div>
 
-                        {/* Progress */}
+                                            {child.dateOfBirth && (
                         <div className="mb-4">
-                          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                            <span>Πρόοδος</span>
-                            <span>{student.completedSessions}/{student.totalSessions}</span>
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{GREEK_TEXT.dateOfBirth}</label>
+                                                <p className="font-medium text-gray-900 text-sm">{new Date(child.dateOfBirth).toLocaleDateString('el-GR')}</p>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${(student.completedSessions / student.totalSessions) * 100}%` }}
-                            ></div>
+                                            )}
+                                            
+                                            <div className="pt-3 border-t border-gray-100">
+                                              <Button
+                                                onClick={() => goToFolderManager(user, child)}
+                                                size="sm"
+                                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 min-h-[44px]"
+                                              >
+                                                <FolderOpen className="w-4 h-4" />
+                                                <span className="text-sm font-medium">{GREEK_TEXT.manageSessionFolders}</span>
+                                              </Button>
                           </div>
+                                          </CardContent>
+                                        </Card>
+                                      ))}
+                        </div>
+                                  )}
                         </div>
 
-                        {/* Parent Contact */}
-                        <div className="text-sm text-gray-600 mb-4">
-                          <p><strong>Γονέας:</strong> {parentContact.name}</p>
-                          <p><strong>Email:</strong> {parentContact.email}</p>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex space-x-2 pt-4 border-t border-gray-200">
+                                {/* Quick Actions - Mobile Grid */}
+                                <div>
+                                  <h4 className="font-medium text-gray-900 mb-3 flex items-center text-sm sm:text-base">
+                                    <Settings className="w-4 h-4 mr-2 text-purple-600" />
+                                    {GREEK_TEXT.quickActions}
+                                  </h4>
+                                  <Card className="bg-white">
+                                    <CardContent className="p-3 sm:p-4">
+                                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
                           <Button
+                                          onClick={() => router.push(`/admin/users/${user.$id}`)}
+                                          variant="outline"
                             size="sm"
+                                          className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
+                                        >
+                                          <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          <span>{GREEK_TEXT.fullDetails}</span>
+                                        </Button>
+                                        <Button
+                                          onClick={() => router.push(`/admin/create-student?parentId=${user.$id}`)}
                             variant="outline"
-                            onClick={() => router.push(`/admin/edit-student/${student.$id}`)}
-                            className="flex-1"
+                                          size="sm"
+                                          className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
                           >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Επεξεργασία
+                                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          <span>{GREEK_TEXT.addChild}</span>
                           </Button>
                           <Button
+                                          variant="outline"
                             size="sm"
+                                          className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
+                                          onClick={() => window.open(`tel:${user.phone}`, '_self')}
+                                        >
+                                          <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          <span>{GREEK_TEXT.call}</span>
+                                        </Button>
+                                        <Button
                             variant="outline"
-                            onClick={() => router.push(`/admin/messages?student=${student.$id}`)}
-                            className="flex-1"
+                                          size="sm"
+                                          className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
+                                          onClick={() => window.open(`mailto:${user.email}`, '_self')}
                           >
-                            <MessageCircle className="w-3 h-3 mr-1" />
-                            Μηνύματα
+                                          <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          <span>{GREEK_TEXT.emailAction}</span>
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
-                  );
-                })}
               </div>
             </div>
-          )}
+                                                        </motion.div>
+                          )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                        </div>
+              )}
+            </div>
+
+        {/* Summary Statistics - Mobile Friendly */}
+        {!loading && filteredUsers.length > 0 && (
+          <Card className="mt-6 sm:mt-8">
+            <CardContent className="p-4 sm:p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600">{users.length}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">{GREEK_TEXT.totalUsers}</p>
+        </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">
+                    {users.reduce((acc, user) => acc + user.children.length, 0)}
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-600">{GREEK_TEXT.totalChildren}</p>
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-orange-600">
+                    {users.reduce((acc, user) => acc + user.totalSessions, 0)}
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-600">{GREEK_TEXT.totalSessions}</p>
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600">
+                    {users.filter(user => user.children.length > 0).length}
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-600">{GREEK_TEXT.activeParents}</p>
         </div>
         </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
 }
 
-export default function AdminPage() {
-  return (
-    <AdminRoute>
-      <AdminPageContent />
-    </AdminRoute>
-  );
-}
+export default AdminPage;

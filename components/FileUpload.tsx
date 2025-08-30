@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { fileService } from '@/lib/fileService';
+import { fileServiceSimple as fileService } from '@/lib/fileServiceSimple';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Upload, 

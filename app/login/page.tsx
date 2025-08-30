@@ -22,13 +22,27 @@ export default function LoginPage() {
   // Check if already authenticated
   useEffect(() => {
     const checkAuth = async () => {
-      if (await auth.isAuthenticated()) {
-        const role = auth.getUserRole();
-        if (role === 'admin') {
-          router.push("/admin");
-        } else if (role === 'parent') {
-          router.push("/dashboard");
+      console.log('🔍 Login page: Checking authentication...');
+      try {
+        const isAuth = await auth.isAuthenticated();
+        console.log('🔍 Authentication status:', isAuth);
+        
+        if (isAuth) {
+          const session = await auth.getSession();
+          console.log('🔍 User session:', session);
+          
+          if (session?.isAdmin) {
+            console.log('🔀 Redirecting admin to /admin');
+            router.push("/admin");
+          } else {
+            console.log('🔀 Redirecting parent to /dashboard');
+            router.push("/dashboard");
+          }
+        } else {
+          console.log('✅ User not authenticated - showing login form');
         }
+      } catch (error) {
+        console.error('❌ Auth check error:', error);
       }
     };
     checkAuth();

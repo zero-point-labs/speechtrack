@@ -46,42 +46,50 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
     const isImage = fileType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|webp)$/);
     const isVideo = fileType.includes('video') || fileName.match(/\.(mp4|mov|avi|mkv|wmv|flv)$/);
 
-    // PDF Preview
+    // PDF Preview - Fixed and Mobile Responsive
     if (isPdf) {
       return (
-        <div className="flex flex-col items-center space-y-4">
-          {/* PDF Controls */}
-          <div className="flex items-center justify-center space-x-2 bg-gray-100 rounded-lg p-3">
+        <div className="flex flex-col items-center space-y-4 w-full">
+          {/* PDF Controls - Mobile Responsive */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-gray-100 rounded-lg p-3 w-full">
             <Button 
               onClick={() => window.open(file.url, '_blank')}
               variant="default" 
               size="sm"
-              className="bg-blue-600 hover:bg-blue-700"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
             >
               <Eye className="w-4 h-4 mr-2" />
               Άνοιγμα σε νέα καρτέλα
             </Button>
             {onDownload && (
-              <Button onClick={onDownload} variant="outline" size="sm">
+              <Button 
+                onClick={onDownload} 
+                variant="outline" 
+                size="sm"
+                className="w-full sm:w-auto"
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Κατέβασμα PDF
               </Button>
             )}
           </div>
 
-          {/* PDF Viewer */}
+          {/* PDF Viewer - Responsive */}
           <div className="w-full max-w-5xl">
             <div 
               className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-lg"
-              style={{ height: '80vh' }}
+              style={{ 
+                height: '70vh', 
+                minHeight: '400px',
+                maxHeight: '600px'
+              }}
             >
               <iframe
                 src={file.url}
                 className="w-full h-full"
                 title={file.name}
                 style={{
-                  border: 'none',
-                  minHeight: '600px'
+                  border: 'none'
                 }}
                 onLoad={() => {
                   console.log('PDF loaded successfully in iframe');
@@ -93,9 +101,10 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
             </div>
           </div>
 
-          {/* Help text */}
-          <div className="text-center text-sm text-gray-600 max-w-md">
-            <p>Αν το PDF δεν εμφανίζεται σωστά, κάντε κλικ στο "Άνοιγμα σε νέα καρτέλα" για καλύτερη προβολή.</p>
+          {/* Help text - Mobile aware */}
+          <div className="text-center text-sm text-gray-600 max-w-md px-4">
+            <p className="hidden sm:block">Αν το PDF δεν εμφανίζεται σωστά, κάντε κλικ στο "Άνοιγμα σε νέα καρτέλα" για καλύτερη προβολή.</p>
+            <p className="sm:hidden">Για καλύτερη προβολή, κάντε κλικ στο "Άνοιγμα σε νέα καρτέλα".</p>
           </div>
         </div>
       );
@@ -124,10 +133,10 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
     if (isVideo) {
       return (
         <div className="w-full max-w-5xl">
-          {/* Main Video Player */}
+          {/* Video Player - Mobile Responsive */}
           <div 
             className="border border-gray-300 rounded-lg overflow-hidden bg-black shadow-lg"
-            style={{ height: '70vh', minHeight: '500px' }}
+            style={{ height: '70vh', minHeight: '400px' }}
           >
             <video
               src={file.url}
@@ -147,6 +156,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
                 console.log('Video ready to play');
               }}
               preload="metadata"
+              playsInline
             >
               <p className="text-white p-4">Ο browser σας δεν υποστηρίζει αναπαραγωγή βίντεο.</p>
             </video>
@@ -179,15 +189,15 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={onClose}
         >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+                  <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200">
               <div className="flex items-center space-x-3">
                 {getFileIcon(file.type)}
                 <div>
@@ -208,6 +218,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
                     className="text-gray-600 hover:text-gray-900"
                   >
                     <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline ml-2">Λήψη</span>
                   </Button>
                 )}
                 <Button
@@ -222,7 +233,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
             </div>
 
             {/* Preview Content */}
-            <div className="p-6 flex items-center justify-center min-h-[400px] overflow-auto">
+            <div className="p-4 md:p-6 flex items-center justify-center min-h-[400px] overflow-auto">
               {renderPreview()}
             </div>
           </motion.div>

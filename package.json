@@ -6,16 +6,27 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup-achievement-collections": "node scripts/setup-achievement-collections.js",
+    "r2-setup": "node scripts/setup-r2.js",
+    "r2-backup": "node scripts/backup-appwrite-files.js",
+    "r2-inventory": "node scripts/inventory-files.js",
+    "r2-migrate": "node scripts/migrate-to-r2.js",
+    "r2-verify": "node scripts/verify-migration.js"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@react-three/drei": "^10.7.4",
+    "@react-three/fiber": "^9.3.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.56.0",
+    "@aws-sdk/client-s3": "^3.737.0",
+    "@aws-sdk/s3-request-presigner": "^3.737.0",
     "appwrite": "^18.2.0",
+    "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.1",
@@ -28,7 +39,8 @@
     "react-dropzone": "^14.3.8",
     "react-photo-view": "^1.2.7",
     "react-player": "^3.3.1",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "three": "^0.179.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

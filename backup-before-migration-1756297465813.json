@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-08-27T12:24:25.811Z",
+  "students": [
+    {
+      "id": "68adc1a044e5b4fdc51e",
+      "name": "Michalis",
+      "parentId": null,
+      "clientCode": "BCLVAKM2",
+      "parentContact": "{\"name\":\"Kyriakos Kyriakou\",\"email\":\"akyriakouu@gmail.com\",\"phone\":\"97774317\"}"
+    },
+    {
+      "id": "68ade03a2bd0de5b660a",
+      "name": "fdfd",
+      "parentId": "68ade0994a9ad4eea046",
+      "clientCode": "VXEMIINK",
+      "parentContact": "{\"name\":\"Kyriakos Kyriakou\",\"email\":\"akyriakouu@gmail.com\",\"phone\":\"97774317\"}"
+    },
+    {
+      "id": "68ade38b135f47dec6bb",
+      "name": "ghg",
+      "parentId": null,
+      "clientCode": "C6K0CIO9",
+      "parentContact": "{\"name\":\"yty\",\"email\":\"ytyt\",\"phone\":\"ytyt\"}"
+    },
+    {
+      "id": "68ade6f0c000a3c5474b",
+      "name": "Kwstantinos",
+      "parentId": "68ade88a051f519fb1cc",
+      "clientCode": "906NAAW3",
+      "parentContact": "{\"name\":\"Maria\",\"email\":\"marilena97@windowslive.com\",\"phone\":\"845466464\"}"
+    },
+    {
+      "id": "68adf4344c8b6b9a0fdc",
+      "name": "Στέφανος Μιχαλιάς",
+      "parentId": null,
+      "clientCode": "9K3MRWWV",
+      "parentContact": "{\"name\":\"Αντρη\",\"email\":\"νδνσνξσξς\",\"phone\":\"9648846\"}"
+    },
+    {
+      "id": "68ae193eb20b93c7982e",
+      "name": "Kyrikos",
+      "parentId": "68ae18eaec5dd1f7753d",
+      "clientCode": "57X1SZF7",
+      "parentContact": "{\"name\":\"Giorgos\",\"email\":\"akyriakouu@gmail.com\",\"phone\":\"97774317\"}"
+    }
+  ]
+}

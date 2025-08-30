@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ParentRoute } from "@/lib/auth-middleware";
 import { databases, storage, appwriteConfig } from "@/lib/appwrite.client";
-import { fileService } from "@/lib/fileService";
+import { fileServiceSimple as fileService } from "@/lib/fileServiceSimple";
 import FilePreview from "@/components/FilePreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -211,36 +211,35 @@ function SessionPageContent() {
           sessionId
         );
 
-        // Load session files from Appwrite Storage
+        // Load session files using new R2 API
         const materials = { pdfs: [], videos: [], images: [] };
         
         try {
-          // Get files for this session from storage
-          const files = await storage.listFiles(appwriteConfig.buckets.files);
-          const sessionFiles = files.files.filter(file => 
-            file.name.startsWith(`${session.$id}_`)
-          );
+          // Get files for this session from our new API
+          console.log('📁 Loading files for session:', session.$id);
+          const sessionFiles = await fileService.getSessionFiles(session.$id);
+          console.log('📁 Found files:', sessionFiles);
           
           // Categorize files by type
-          sessionFiles.forEach(file => {
-            const fileType = file.mimeType || '';
+          sessionFiles.forEach((file: any) => {
             const fileData = {
-              id: file.$id,
-              name: file.name.replace(`${session.$id}_`, ''), // Remove session ID prefix from display name
-              url: fileService.getFileViewUrl(file.$id),
-              type: fileType,
-              uploadDate: new Date(file.$createdAt).toLocaleDateString('el-GR')
+              id: file.id,
+              name: file.name,
+              url: file.url,
+              type: file.type,
+              uploadDate: file.uploadDate ? new Date(file.uploadDate).toLocaleDateString('el-GR') : 'Σήμερα',
+              uploadDateRaw: file.uploadDate // Keep original for any additional formatting
             };
             
-            if (fileType.includes('pdf')) {
+            if (file.type === 'pdf') {
               materials.pdfs.push(fileData);
-            } else if (fileType.includes('image')) {
+            } else if (file.type === 'image') {
               materials.images.push(fileData);
-            } else if (fileType.includes('video')) {
+            } else if (file.type === 'video') {
               materials.videos.push({
                 ...fileData,
-                thumbnail: fileService.getFilePreviewUrl(file.$id),
-                duration: "N/A" // Duration not available from Appwrite metadata
+                thumbnail: file.url, // Use the same URL for thumbnail
+                duration: "N/A" // Duration not available from metadata
               });
             }
           });
@@ -392,23 +391,23 @@ function SessionPageContent() {
   }, [newComment, sessionData, sessionId]);
 
   // Handle file preview
-  const handleFilePreview = useCallback((file: { $id: string; name: string; type: string }) => {
+  const handleFilePreview = useCallback((file: { id: string; name: string; type: string; url?: string }) => {
     const fileType = file.type || '';
     const fileName = file.name || '';
     
     const fileForPreview = {
       ...file,
       type: fileType,
-      url: fileService.getFileViewUrl(file.id) // Always use view URL for preview
+      url: file.url || fileService.getFileViewUrl(file.id) // Use provided URL or generate one
     };
     setPreviewFile(fileForPreview);
     setShowFilePreview(true);
   }, []);
 
   // Handle file download
-  const handleFileDownload = useCallback(async (file: { $id: string; name: string }) => {
+  const handleFileDownload = useCallback(async (file: { id: string; name: string; downloadUrl?: string }) => {
     try {
-      const downloadUrl = fileService.getFileDownloadUrl(file.id);
+      const downloadUrl = file.downloadUrl || fileService.getFileDownloadUrl(file.id);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = file.name;
@@ -582,7 +581,7 @@ function SessionPageContent() {
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 truncate">{pdf.name}</p>
                               <p className="text-sm text-gray-600">
-                                Ανέβηκε: {new Date(pdf.uploadDate).toLocaleDateString('el-GR')}
+                                Ανέβηκε: {pdf.uploadDate}
                               </p>
                             </div>
                             <div className="flex items-center space-x-2 ml-4">

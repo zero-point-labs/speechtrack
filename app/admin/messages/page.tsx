@@ -82,22 +82,8 @@ function MessagesPageContent() {
 
   // Load messages for a specific student
   const loadMessagesForStudent = useCallback(async (studentId: string): Promise<Message[]> => {
-    try {
-      const messagesResponse = await databases.listDocuments(
-        appwriteConfig.databaseId!,
-        appwriteConfig.collections.messages!,
-        [
-          Query.equal('studentId', studentId),
-          Query.orderAsc('$createdAt'),
-          Query.limit(100)
-        ]
-      );
-      
-      return messagesResponse.documents as Message[];
-    } catch (error) {
-      console.error('Error loading messages for student:', studentId, error);
-      return [];
-    }
+    // Messages functionality disabled - collection was removed
+    return [];
   }, []);
 
   // Load all conversations (students with messages)
@@ -212,20 +198,8 @@ function MessagesPageContent() {
       // Parse parent contact to get their user info (for future use)
       // const parentContact = parseParentContact(conversation.student.parentContact);
       
-      // Create message in database
-      await databases.createDocument(
-        appwriteConfig.databaseId!,
-        appwriteConfig.collections.messages!,
-        'unique()',
-        {
-          studentId: selectedConversation,
-          senderId: user.id,
-          receiverId: 'parent', // We'll need to get the actual parent user ID later
-          content: newMessage.trim(),
-          isRead: false,
-          messageType: 'text'
-        }
-      );
+      // Messages functionality disabled - collection was removed
+      console.log('Messages functionality disabled');
       
       // Clear message input
       setNewMessage("");

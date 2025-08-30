@@ -26,6 +26,16 @@ NEXT_PUBLIC_APPWRITE_CLIENT_CODES_COLLECTION_ID=
 NEXT_PUBLIC_APPWRITE_SESSION_FILES_BUCKET_ID=
 NEXT_PUBLIC_APPWRITE_PROFILE_PICTURES_BUCKET_ID=
 
+# Cloudflare R2 Storage Configuration (Migration)
+CLOUDFLARE_R2_ENDPOINT=your-r2-endpoint-here
+CLOUDFLARE_R2_ACCESS_KEY_ID=your-r2-access-key-here
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your-r2-secret-key-here
+CLOUDFLARE_R2_BUCKET_NAME=speechtrack-session-files
+
+# Storage Feature Toggles
+USE_R2_STORAGE=false
+ENABLE_MIXED_STORAGE_MODE=false
+
 # Admin Authentication
 ADMIN_PASSWORD=Marilena.Speech.1!
 `;
