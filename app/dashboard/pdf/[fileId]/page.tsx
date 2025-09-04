@@ -73,44 +73,25 @@ function PDFViewerContent() {
       setError(null);
 
       console.log('🔍 Loading file data for ID:', fileId);
-      console.log('🔍 Database config:', {
-        databaseId: appwriteConfig.databaseId,
-        sessionFilesCollection: appwriteConfig.collections.sessionFiles
-      });
 
-      // Get file metadata from database
-      const fileRecord = await databases.getDocument(
-        appwriteConfig.databaseId!,
-        appwriteConfig.collections.sessionFiles!,
-        fileId
-      );
+      // Use server API instead of direct database access to avoid auth issues
+      const response = await fetch(`/api/file-info/${fileId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to load file info');
+      }
 
-      console.log('📄 File record loaded:', fileRecord);
-
-      const fileData: FileData = {
-        id: fileRecord.$id,
-        name: fileRecord.fileName,
-        type: fileRecord.fileType,
-        size: fileRecord.fileSize,
-        sessionId: fileRecord.sessionId,
-        url: fileService.getFileViewUrl(fileRecord.$id),
-        downloadUrl: fileService.getFileDownloadUrl(fileRecord.$id)
-      };
-
+      const fileData = await response.json();
+      
+      console.log('✅ PDF file loaded via API:', fileData.name);
       setFileData(fileData);
-      console.log('✅ PDF file loaded successfully:', fileData.name);
 
     } catch (error: any) {
       console.error('❌ Error loading file:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        code: error.code,
-        type: error.type,
-        fileId: fileId
-      });
       
       // More specific error message
-      if (error.message?.includes('not found')) {
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
         setError(`Το αρχείο δεν βρέθηκε (ID: ${fileId})`);
       } else if (error.message?.includes('permission')) {
         setError('Δεν έχετε δικαιώματα πρόσβασης σε αυτό το αρχείο');
@@ -162,8 +143,15 @@ function PDFViewerContent() {
     }
   };
 
-  const getGoogleDocsViewerUrl = (pdfUrl: string) => {
-    return `https://docs.google.com/gviewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
+  const getEnhancedPDFUrl = (pdfUrl: string, isMobile: boolean) => {
+    // Enhanced PDF viewing parameters for better mobile/desktop experience
+    if (isMobile) {
+      // Mobile: Fit to width, minimal UI for more reading space
+      return `${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1&page=1&zoom=FitV&view=FitV`;
+    } else {
+      // Desktop: Full features with fit to height
+      return `${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1&zoom=FitH&view=FitH`;
+    }
   };
 
   // Loading state
@@ -196,7 +184,7 @@ function PDFViewerContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className={`${isMobile ? 'mobile-pdf-page' : 'min-h-screen'} bg-gray-50 flex flex-col`}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="px-4 py-3">
@@ -264,78 +252,82 @@ function PDFViewerContent() {
           // Mobile: Google Docs Viewer + Native app option
           <div className="h-full flex flex-col">
             {/* Mobile guidance banner */}
-            <div className="bg-blue-50 border-b p-4">
-              <div className="flex items-start gap-3">
-                <Smartphone className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="font-medium text-blue-900 text-sm">Βελτιστοποιημένη προβολή για κινητό</h3>
-                  <div className="text-xs text-blue-800 mt-2 space-y-1">
-                    <p>🔥 <strong>Καλύτερη επιλογή:</strong> Κάντε κλικ "Άνοιγμα στην εφαρμογή" για άριστη ανάγνωση</p>
-                    <p>📱 Χρησιμοποιήστε pinch-to-zoom για μεγέθυνση</p>
-                    <p>🔄 Περιστρέψτε σε landscape για μεγαλύτερο κείμενο</p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Google Docs Viewer - Excellent mobile support */}
-            <div className="flex-1 bg-gray-100">
+            {/* Enhanced Mobile PDF Iframe */}
+            <div className="flex-1 bg-gray-100 relative">
               <iframe
-                src={getGoogleDocsViewerUrl(fileData.url)}
-                className="w-full h-full border-0"
+                src={getEnhancedPDFUrl(fileData.url, true)}
+                className="w-full h-full border-0 mobile-pdf-iframe"
                 title={fileData.name}
                 loading="lazy"
-                style={{ minHeight: '500px' }}
                 sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                style={{ 
+                  minHeight: '500px',
+                  // Mobile iframe optimizations
+                  width: '100%',
+                  height: '100%'
+                }}
+                onLoad={() => {
+                  console.log('📱 Enhanced mobile PDF loaded successfully');
+                }}
+                onError={() => {
+                  console.log('⚠️ PDF iframe error - showing fallback options');
+                }}
               />
+              
             </div>
 
-            {/* Mobile action bar */}
-            <div className="bg-white border-t p-3">
+            {/* Enhanced Mobile action bar */}
+            <div className="bg-white border-t p-4 space-y-3">
+              {/* Primary action - Native app */}
+              <Button
+                onClick={openInNativeApp}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
+                size="lg"
+              >
+                <Smartphone className="w-5 h-5 mr-3" />
+                Άνοιγμα στην εφαρμογή PDF
+              </Button>
+              
+              {/* Secondary actions */}
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  onClick={openInNativeApp}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Smartphone className="w-4 h-4 mr-2" />
-                  Άνοιγμα στην εφαρμογή
-                </Button>
                 <Button
                   onClick={handleDownload}
                   variant="outline"
+                  className="py-2"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Κατέβασμα
                 </Button>
+                <Button
+                  onClick={openInNewTab}
+                  variant="outline"
+                  className="py-2"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Νέα καρτέλα
+                </Button>
               </div>
+              
             </div>
           </div>
         ) : (
           // Desktop: Enhanced iframe with full controls
           <div className="h-full p-4 bg-gray-100">
             <div className="h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden">
-              {/* Desktop info banner */}
-              <div className="bg-gray-50 border-b p-3">
-                <div className="flex items-center gap-3">
-                  <Monitor className="w-5 h-5 text-gray-600" />
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 text-sm">Desktop PDF Viewer</h3>
-                    <p className="text-xs text-gray-600">
-                      Πλήρης λειτουργικότητα με zoom, αναζήτηση και εκτύπωση
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              {/* PDF iframe with enhanced parameters */}
+              {/* Enhanced Desktop PDF Viewer */}
               <div className="flex-1">
                 <iframe
-                  src={`${fileData.url}#toolbar=1&navpanes=1&scrollbar=1&zoom=FitH&view=FitH`}
+                  src={getEnhancedPDFUrl(fileData.url, false)}
                   className="w-full h-full border-0"
                   title={fileData.name}
                   loading="lazy"
                   style={{ minHeight: '600px' }}
                   sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                  onLoad={() => {
+                    console.log('🖥️ Enhanced desktop PDF loaded');
+                  }}
                 />
               </div>
             </div>

@@ -153,12 +153,16 @@
   }
 }
 
-/* Mobile PDF iframe optimizations */
+/* Enhanced Mobile PDF iframe optimizations */
 @media (max-width: 768px) {
-  iframe[title*="pdf" i], iframe[src*="gviewer" i] {
+  iframe[title*="pdf" i] {
     width: 100% !important;
     height: 100% !important;
     border: none !important;
+    background: white;
+    /* Improve mobile PDF rendering */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 }
 
@@ -166,4 +170,21 @@
 .pdf-viewer-container {
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
+  /* Improve mobile scrolling performance */
+  will-change: scroll-position;
+}
+
+/* Mobile PDF page optimizations */
+@media (max-width: 768px) {
+  .mobile-pdf-page {
+    /* Ensure full height usage */
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  }
+  
+  .mobile-pdf-iframe {
+    /* Better mobile PDF display */
+    min-height: calc(100vh - 200px);
+    min-height: calc(100dvh - 200px);
+  }
 }
