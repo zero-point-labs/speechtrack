@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AdminRoute } from "@/lib/auth-middleware";
 import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
 import { fileServiceSimple as fileService } from "@/lib/fileServiceSimple";
+import sessionFolderService from "@/lib/sessionFolderService";
 import FilePreview from "@/components/FilePreview";
 // import FileUpload from "@/components/FileUpload"; // Unused import
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,7 +64,7 @@ interface SessionData {
   id: string;
   studentId: string;
   folderId?: string;
-  sessionNumber: number;
+  sessionNumber: string; // Changed to string to match database format like "9 - 2025"
   title: string;
   date: string;
   duration: string;
@@ -97,7 +98,7 @@ const mockSessionData: SessionData = {
   id: "1",
   studentId: "1",
   folderId: "1",
-  sessionNumber: 1,
+  sessionNumber: "1 - 2024",
   title: "Αρχική Αξιολόγηση & Εισαγωγή",
   date: "2024-01-01",
   duration: "45 λεπτά",
@@ -161,7 +162,7 @@ function SessionEditPageContent() {
     id: sessionId,
     studentId: studentId || "1",
     folderId: searchParams.get('folderId') || undefined,
-    sessionNumber: 1,
+    sessionNumber: "1",
     title: "",
     date: new Date().toISOString().split('T')[0],
     duration: "45 λεπτά",
@@ -202,6 +203,10 @@ function SessionEditPageContent() {
   // Upload helper function with progress
   const uploadWithProgress = async (file: File, fileType: 'pdf' | 'video' | 'image') => {
     try {
+      const fileSize = fileService.formatFileSize(file.size);
+      const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+      const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+      
       // Start upload progress
       setUploadProgress({
         isUploading: true,
@@ -210,15 +215,31 @@ function SessionEditPageContent() {
         fileType: fileType
       });
 
-      // Simulate progress (since we can't get real progress from fetch)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev && prev.progress < 90) {
-            return { ...prev, progress: prev.progress + 10 };
-          }
-          return prev;
-        });
-      }, 200);
+      let progressInterval: NodeJS.Timeout;
+
+      if (isLargeFile) {
+        // For large files, show different progress pattern (direct upload)
+        console.log(`📤 Uploading large file (${fileSize}): ${file.name}`);
+        progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev && prev.progress < 85) {
+              return { ...prev, progress: prev.progress + 5 };
+            }
+            return prev;
+          });
+        }, 500);
+      } else {
+        // For small files, use faster progress (traditional upload)
+        console.log(`📤 Uploading small file (${fileSize}): ${file.name}`);
+        progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev && prev.progress < 90) {
+              return { ...prev, progress: prev.progress + 10 };
+            }
+            return prev;
+          });
+        }, 200);
+      }
 
       // Actual upload
       const uploadedFile = await fileService.uploadFile(file, sessionData.id);
@@ -253,24 +274,49 @@ function SessionEditPageContent() {
     try {
       setLoading(true);
       
-      // Get the highest session number for this student to calculate next number
+      const folderId = searchParams.get('folderId');
+      
+      // Get the highest session number for this folder to calculate next number
+      const queryFilters = [Query.equal('studentId', studentId!), Query.orderDesc('sessionNumber')];
+      
+      // If we have a folderId, get sessions only from that folder
+      if (folderId) {
+        queryFilters.push(Query.equal('folderId', folderId));
+      }
+      
       const existingSessions = await databases.listDocuments(
         appwriteConfig.databaseId!,
         appwriteConfig.collections.sessions!,
-        [Query.equal('studentId', studentId!), Query.orderDesc('sessionNumber')]
+        queryFilters
       );
       
-      const nextSessionNumber = existingSessions.documents.length > 0 
-        ? (existingSessions.documents[0].sessionNumber || 0) + 1 
-        : 1;
+      // Extract numeric session numbers from formatted strings like "8 - 2025"
+      let nextSessionNumber = 1;
+      if (existingSessions.documents.length > 0) {
+        const numericSessions = existingSessions.documents
+          .map(session => {
+            const match = session.sessionNumber?.toString().match(/^(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+          })
+          .filter(num => num > 0);
+        
+        if (numericSessions.length > 0) {
+          nextSessionNumber = Math.max(...numericSessions) + 1;
+        }
+      }
       
-      console.log(`Initializing new session #${nextSessionNumber} for student:`, studentId);
+      console.log(`Initializing new session #${nextSessionNumber} for folder:`, folderId);
       
-      // Update session data with correct studentId and sessionNumber
+      // Format session number to match existing format (e.g., "9 - 2025")
+      const currentYear = new Date().getFullYear();
+      const formattedSessionNumber = `${nextSessionNumber} - ${currentYear}`;
+      
+      // Update session data with correct studentId, folderId, and sessionNumber
       setSessionData(prev => ({
         ...prev,
         studentId: studentId!,
-        sessionNumber: nextSessionNumber,
+        folderId: folderId || undefined,
+        sessionNumber: formattedSessionNumber,
         title: `Συνεδρία ${nextSessionNumber}`
       }));
       
@@ -296,7 +342,7 @@ function SessionEditPageContent() {
       // Map database status to UI status
       const dbToUIStatusMapping: Record<string, 'completed' | 'locked' | 'canceled'> = {
         'completed': 'completed',
-        'available': 'locked', // Default available sessions to locked in UI
+        'available': 'locked', // Legacy: convert old available sessions to locked in UI
         'locked': 'locked',
         'cancelled': 'canceled'
       };
@@ -546,14 +592,14 @@ function SessionEditPageContent() {
       // Keep duration as string (remove ' λεπτά' suffix and convert to just the number as string)
       const durationString = sessionData.duration.replace(' λεπτά', '');
       
-      // Map UI status to database status
+      // Map UI status to database status (no more "available" - use "locked" in database too)
       const statusMapping = {
         'completed': 'completed',
-        'locked': 'available',
+        'locked': 'locked', // Changed: use locked in DB instead of available
         'canceled': 'cancelled'
       };
       
-      const dbStatus = statusMapping[sessionData.status] || 'available';
+      const dbStatus = statusMapping[sessionData.status] || 'locked';
       
       // Prepare data for Appwrite
       const updateData = {
@@ -583,6 +629,13 @@ function SessionEditPageContent() {
       let finalSessionId = sessionId;
       
       if (isNewSession) {
+        console.log('📝 Creating new session with data:', {
+          ...updateData,
+          studentId: sessionData.studentId,
+          folderId: sessionData.folderId,
+          sessionNumber: sessionData.sessionNumber
+        });
+        
         // Create new session with auto-generated unique ID
         const newSession = await databases.createDocument(
           appwriteConfig.databaseId!,
@@ -591,13 +644,28 @@ function SessionEditPageContent() {
           {
             ...updateData,
             studentId: sessionData.studentId,
-            sessionNumber: sessionData.sessionNumber
+            folderId: sessionData.folderId, // Include folderId so session appears in folder
+            sessionNumber: sessionData.sessionNumber // Already formatted as "X - YYYY"
           }
         );
         
         // Update the sessionId to the newly created session's ID
         finalSessionId = newSession.$id;
         console.log('✅ Successfully created new session:', finalSessionId);
+        console.log('📁 Session created in folder:', sessionData.folderId);
+        
+        // Update folder statistics (totalSessions, completedSessions)
+        if (sessionData.folderId) {
+          try {
+            console.log('📊 Updating folder statistics for:', sessionData.folderId);
+            const updatedFolder = await sessionFolderService.updateFolderStats(sessionData.folderId);
+            console.log('📊 Folder stats updated successfully:', updatedFolder.totalSessions, 'total sessions');
+          } catch (error) {
+            console.error('⚠️ Failed to update folder stats:', error);
+            console.error('Full error:', error);
+            // Don't fail the session creation if stats update fails
+          }
+        }
       } else {
         // Update existing session
         await databases.updateDocument(
@@ -607,6 +675,17 @@ function SessionEditPageContent() {
           updateData
         );
         console.log('✅ Successfully updated session:', sessionId);
+        
+        // Update folder statistics if session has folderId (in case status changed)
+        if (sessionData.folderId) {
+          try {
+            await sessionFolderService.updateFolderStats(sessionData.folderId);
+            console.log('📊 Updated folder statistics after session update');
+          } catch (error) {
+            console.error('⚠️ Failed to update folder stats:', error);
+            // Don't fail the session update if stats update fails
+          }
+        }
       }
       
       // Success - redirect back to the folder sessions page
@@ -1069,6 +1148,24 @@ function SessionEditPageContent() {
                 Υλικό Συνεδρίας
               </h2>
 
+              {/* File Size Information Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-medium text-blue-900 mb-2">Μεταφόρτωση Αρχείων Χωρίς Όρια Μεγέθους</h3>
+                    <div className="text-sm text-blue-800 space-y-1">
+                      <p>• <strong>Μικρά αρχεία (&lt; 4MB):</strong> Γρήγορη παραδοσιακή μεταφόρτωση</p>
+                      <p>• <strong>Μεγάλα αρχεία (&gt; 4MB):</strong> Έξυπνη μεταφόρτωση με αυτόματο fallback</p>
+                      <p>• <strong>Υποστηρίζονται όλα τα μεγέθη:</strong> PDF, βίντεο και εικόνες χωρίς περιορισμούς</p>
+                      <p className="text-orange-700 bg-orange-100 px-2 py-1 rounded text-xs">
+                        💡 <strong>Σημείωση:</strong> Μεγάλα αρχεία μπορεί να χρειάζονται περισσότερο χρόνο μέχρι να ρυθμιστεί το CORS
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
 
 
               {/* PDF Files */}
@@ -1094,6 +1191,17 @@ function SessionEditPageContent() {
                           try {
                             for (const file of files) {
                               if (file.type === 'application/pdf') {
+                                // Show file size info for user awareness
+                                const fileSize = fileService.formatFileSize(file.size);
+                                const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+                                const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+                                
+                                if (isLargeFile) {
+                                  console.log(`📤 Large file detected (${fileSize}): ${file.name} - Using direct upload method`);
+                                } else {
+                                  console.log(`📤 Small file (${fileSize}): ${file.name} - Using traditional upload`);
+                                }
+
                                 const uploadedFile = await uploadWithProgress(file, 'pdf') as any;
                                 setSessionData(prev => ({
                                   ...prev,
@@ -1109,10 +1217,9 @@ function SessionEditPageContent() {
                                   }
                                 }));
                                 
-                                // Reload session files to update the list
-                                setTimeout(() => {
-                                  window.location.reload();
-                                }, 1500);
+                                // File added to state - UI updates automatically
+                              } else {
+                                alert('Παρακαλώ επιλέξτε μόνο αρχεία PDF');
                               }
                             }
                           } catch (error) {
@@ -1211,6 +1318,17 @@ function SessionEditPageContent() {
                           try {
                             for (const file of files) {
                               if (file.type.startsWith('video/')) {
+                                // Show file size info for user awareness
+                                const fileSize = fileService.formatFileSize(file.size);
+                                const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+                                const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+                                
+                                if (isLargeFile) {
+                                  console.log(`📤 Large video detected (${fileSize}): ${file.name} - Using direct upload method`);
+                                } else {
+                                  console.log(`📤 Small video (${fileSize}): ${file.name} - Using traditional upload`);
+                                }
+
                                 const uploadedFile = await uploadWithProgress(file, 'video') as any;
                                 setSessionData(prev => ({
                                   ...prev,
@@ -1226,10 +1344,9 @@ function SessionEditPageContent() {
                                   }
                                 }));
                                 
-                                // Reload session files to update the list
-                                setTimeout(() => {
-                                  window.location.reload();
-                                }, 1500);
+                                // File added to state - UI updates automatically
+                              } else {
+                                alert('Παρακαλώ επιλέξτε μόνο αρχεία βίντεο');
                               }
                             }
                           } catch (error) {
@@ -1328,6 +1445,17 @@ function SessionEditPageContent() {
                           try {
                             for (const file of files) {
                               if (file.type.startsWith('image/')) {
+                                // Show file size info for user awareness
+                                const fileSize = fileService.formatFileSize(file.size);
+                                const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+                                const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+                                
+                                if (isLargeFile) {
+                                  console.log(`📤 Large image detected (${fileSize}): ${file.name} - Using direct upload method`);
+                                } else {
+                                  console.log(`📤 Small image (${fileSize}): ${file.name} - Using traditional upload`);
+                                }
+
                                 const uploadedFile = await uploadWithProgress(file, 'image') as any;
                                 setSessionData(prev => ({
                                   ...prev,
@@ -1343,10 +1471,9 @@ function SessionEditPageContent() {
                                   }
                                 }));
                                 
-                                // Reload session files to update the list
-                                setTimeout(() => {
-                                  window.location.reload();
-                                }, 1500);
+                                // File added to state - UI updates automatically
+                              } else {
+                                alert('Παρακαλώ επιλέξτε μόνο αρχεία εικόνων');
                               }
                             }
                           } catch (error) {
@@ -1551,7 +1678,11 @@ function SessionEditPageContent() {
               </div>
               <Progress value={uploadProgress.progress} className="w-full h-2" />
               <p className="text-xs text-gray-500 text-center">
-                {uploadProgress.progress < 100 ? 'Γίνεται μεταφόρτωση...' : '✅ Μεταφόρτωση ολοκληρώθηκε!'}
+                {uploadProgress.progress < 100 ? (
+                  uploadProgress.fileType === 'video' || uploadProgress.progress > 85 ? 
+                    'Γίνεται άμεση μεταφόρτωση στο cloud...' : 
+                    'Γίνεται μεταφόρτωση...'
+                ) : '✅ Αρχείο προστέθηκε επιτυχώς!'}
               </p>
             </div>
           </div>

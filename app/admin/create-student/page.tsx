@@ -266,7 +266,7 @@ function CreateStudentForm() {
             description: '',
             date: sessionDate.toISOString(),
             duration: template.duration.toString(),
-            status: sessionIndex === 0 && week === 0 ? 'available' : 'locked',
+            status: 'locked', // All sessions start as locked
             isPaid: false
           });
         }

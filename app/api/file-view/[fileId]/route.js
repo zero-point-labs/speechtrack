@@ -17,7 +17,7 @@ const r2Client = new S3Client({
 
 export async function GET(request, { params }) {
   try {
-    const { fileId } = params;
+    const { fileId } = await params;
     
     // Get file metadata from database
     const { databases } = createServerClient();

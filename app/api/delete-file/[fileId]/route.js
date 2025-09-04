@@ -17,7 +17,7 @@ const r2Client = new S3Client({
 
 export async function DELETE(request, { params }) {
   try {
-    const { fileId } = params;
+    const { fileId } = await params;
     
     // Get file metadata from database
     const { databases } = createServerClient();
@@ -39,12 +39,11 @@ export async function DELETE(request, { params }) {
       console.log(`✅ Deleted from R2: ${r2Key}`);
     }
 
-    // Mark as inactive in database (soft delete)
-    await databases.updateDocument(
+    // Delete from database (hard delete since isActive field doesn't exist yet)
+    await databases.deleteDocument(
       appwriteConfig.databaseId,
       appwriteConfig.collections.sessionFiles,
-      fileId,
-      { isActive: false }
+      fileId
     );
 
     console.log(`✅ Marked as deleted in database: ${fileId}`);

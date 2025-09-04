@@ -7,7 +7,7 @@ import { Query } from 'node-appwrite';
  */
 export async function GET(request, { params }) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     
     console.log(`📁 Fetching files for session: ${sessionId}`);
 

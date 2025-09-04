@@ -91,7 +91,7 @@ interface Student {
 interface Session {
   id: string;
   sessionNumber: number;
-  status: "completed" | "available" | "locked";
+  status: "completed" | "locked" | "canceled";
   date?: string;
   title?: string;
 }
@@ -691,8 +691,8 @@ function DashboardContent() {
           description: session.description || '',
           date: session.date,
           duration: session.duration + ' λεπτά',
-          status: session.status === 'available' ? 'locked' : session.status === 'cancelled' ? 'canceled' : session.status,
-          isLocked: session.status === 'locked' || session.status === 'available',
+          status: session.status === 'cancelled' ? 'canceled' : session.status,
+          isLocked: session.status === 'locked',
           isPaid: session.isPaid,
           therapistNotes: session.therapistNotes || '',
           homework: [],

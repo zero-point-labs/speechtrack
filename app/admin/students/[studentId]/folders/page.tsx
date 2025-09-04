@@ -342,7 +342,7 @@ export default function StudentFoldersPage() {
             description: `${template.duration} λεπτά συνεδρία`,
             date: sessionDate.toISOString().split('T')[0], // Use YYYY-MM-DD format
             duration: `${template.duration} λεπτά`,
-            status: sessionNumber === startingSessionNumber ? 'available' : 'locked',
+            status: 'locked', // All sessions start as locked
             isPaid: false,
             therapistNotes: null
           });
@@ -896,7 +896,12 @@ export default function StudentFoldersPage() {
                       )}
                       
                       <Button
-                        onClick={() => router.push(`/admin/create-session?studentId=${studentId}&folderId=${folder.$id}`)}
+                        onClick={() => {
+                          // Generate a timestamp-based session ID (like the existing sessions)
+                          const newSessionId = Date.now().toString();
+                          // Navigate directly to edit page for new session
+                          router.push(`/admin/edit/${newSessionId}?studentId=${studentId}&folderId=${folder.$id}`);
+                        }}
                         size="sm"
                         className="flex items-center gap-1 bg-green-600 hover:bg-green-700 min-h-[40px] text-xs sm:text-sm"
                       >

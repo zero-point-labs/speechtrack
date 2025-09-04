@@ -310,7 +310,7 @@ function CreateSessionContent() {
             description: `Αυτόματη συνεδρία - ${template.duration} λεπτά`,
             date: sessionDate.toISOString(),
             duration: `${template.duration} λεπτά`,
-            status: sessionNumber === startingSessionNumber ? 'available' : 'locked',
+            status: 'locked', // All sessions start as locked
             isPaid: false,
             therapistNotes: null
           });

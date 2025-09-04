@@ -34,7 +34,7 @@ interface SessionData {
   title: string;
   date: string;
   duration: string;
-  status: "completed" | "available" | "locked";
+  status: "completed" | "locked" | "canceled";
   isPaid: boolean;
   therapist: string;
   goals: string[];
@@ -293,7 +293,7 @@ function SessionPageContent() {
           title: session.title,
           date: session.date.split('T')[0], // Convert to date only
           duration: session.duration + ' λεπτά',
-          status: session.status === 'completed' ? 'completed' : session.status === 'locked' ? 'locked' : 'available',
+          status: session.status === 'completed' ? 'completed' : session.status === 'locked' ? 'locked' : 'locked',
           isPaid: session.isPaid || false,
           therapist: "Μαριλένα Νέστωρος", // Default therapist name
           goals: [], // TODO: Load from session goals

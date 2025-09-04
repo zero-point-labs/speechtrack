@@ -155,13 +155,23 @@ export default function FolderSessionsPage() {
       );
       setStudent(studentResponse as unknown as Student);
 
-      // Load folder
-      const folderResponse = await databases.getDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessionFolders,
-        folderId
-      );
-      setFolder(folderResponse as unknown as SessionFolder);
+      // Load folder (use API to get fresh stats)
+      console.log('📊 Loading folder with fresh statistics...');
+      const folderApiResponse = await fetch(`/api/admin/session-folders/${folderId}`);
+      const folderApiData = await folderApiResponse.json();
+      
+      if (folderApiData.success) {
+        setFolder(folderApiData.folder as SessionFolder);
+        console.log('📊 Loaded fresh folder stats:', folderApiData.folder.totalSessions, 'total sessions');
+      } else {
+        // Fallback to direct database call
+        const folderResponse = await databases.getDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.collections.sessionFolders,
+          folderId
+        );
+        setFolder(folderResponse as unknown as SessionFolder);
+      }
 
       // Load sessions for this folder
       const sessionsResponse = await databases.listDocuments(
@@ -190,6 +200,31 @@ export default function FolderSessionsPage() {
       setLoading(false);
     }
   };
+
+  // Reload data when page becomes visible (e.g., when returning from session edit)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && studentId && folderId && isAuthenticated && isAdmin) {
+        console.log('📄 Page became visible - refreshing folder data');
+        loadData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (studentId && folderId && isAuthenticated && isAdmin) {
+        console.log('🔄 Window focused - refreshing folder data');
+        loadData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [studentId, folderId, isAuthenticated, isAdmin]);
 
   useEffect(() => {
     if (studentId && folderId && isAuthenticated && isAdmin) {
@@ -332,7 +367,12 @@ export default function FolderSessionsPage() {
                 <span className="text-sm font-medium">{GREEK_TEXT.folders}</span>
               </Button>
               <Button
-                onClick={() => router.push(`/admin/create-session?studentId=${studentId}&folderId=${folderId}`)}
+                onClick={() => {
+                  // Generate a timestamp-based session ID (like the existing sessions)
+                  const newSessionId = Date.now().toString();
+                  // Navigate directly to edit page for new session
+                  router.push(`/admin/edit/${newSessionId}?studentId=${studentId}&folderId=${folderId}`);
+                }}
                 className="flex items-center gap-2 px-3 py-2 min-h-[44px] bg-green-600 hover:bg-green-700 flex-1 sm:flex-none justify-center"
               >
                 <Plus className="w-4 h-4" />
@@ -367,15 +407,15 @@ export default function FolderSessionsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-orange-600">
-                  {sessions.filter(s => s.status === 'unlocked').length}
-                </p>
-                <p className="text-sm text-gray-600">{GREEK_TEXT.upcomingSessions}</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-600">
                   {sessions.filter(s => s.status === 'locked').length}
                 </p>
                 <p className="text-sm text-gray-600">{GREEK_TEXT.lockedSessions}</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-red-600">
+                  {sessions.filter(s => s.status === 'cancelled' || s.status === 'canceled').length}
+                </p>
+                <p className="text-sm text-gray-600">Ακυρωμένες</p>
               </div>
             </div>
           </CardContent>

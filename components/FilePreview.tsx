@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import ReactPlayer from 'react-player';
 import { motion, AnimatePresence } from 'framer-motion';
+import MobilePDFViewer from './MobilePDFViewer';
 import { 
   X, 
   Download, 
@@ -31,6 +32,21 @@ interface FilePreviewProps {
 }
 
 const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDownload }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent;
+      const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+      const screenCheck = window.innerWidth < 768;
+      setIsMobile(mobileCheck || screenCheck);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const getFileIcon = (type: string) => {
     if (type.includes('pdf')) return <FileText className="w-5 h-5" />;
@@ -46,69 +62,19 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
     const isImage = fileType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|webp)$/);
     const isVideo = fileType.includes('video') || fileName.match(/\.(mp4|mov|avi|mkv|wmv|flv)$/);
 
-    // PDF Preview - Fixed and Mobile Responsive
+    // PDF Preview - Mobile Optimized with react-pdf
     if (isPdf) {
       return (
-        <div className="flex flex-col items-center space-y-4 w-full">
-          {/* PDF Controls - Mobile Responsive */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-gray-100 rounded-lg p-3 w-full">
-            <Button 
-              onClick={() => window.open(file.url, '_blank')}
-              variant="default" 
-              size="sm"
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              Άνοιγμα σε νέα καρτέλα
-            </Button>
-            {onDownload && (
-              <Button 
-                onClick={onDownload} 
-                variant="outline" 
-                size="sm"
-                className="w-full sm:w-auto"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Κατέβασμα PDF
-              </Button>
-            )}
-          </div>
-
-          {/* PDF Viewer - Responsive */}
-          <div className="w-full max-w-5xl">
-            <div 
-              className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-lg"
-              style={{ 
-                height: '70vh', 
-                minHeight: '400px',
-                maxHeight: '600px'
-              }}
-            >
-              <iframe
-                src={file.url}
-                className="w-full h-full"
-                title={file.name}
-                style={{
-                  border: 'none'
-                }}
-                onLoad={() => {
-                  console.log('PDF loaded successfully in iframe');
-                }}
-                onError={(e) => {
-                  console.error('PDF iframe error:', e);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Help text - Mobile aware */}
-          <div className="text-center text-sm text-gray-600 max-w-md px-4">
-            <p className="hidden sm:block">Αν το PDF δεν εμφανίζεται σωστά, κάντε κλικ στο "Άνοιγμα σε νέα καρτέλα" για καλύτερη προβολή.</p>
-            <p className="sm:hidden">Για καλύτερη προβολή, κάντε κλικ στο "Άνοιγμα σε νέα καρτέλα".</p>
-          </div>
+        <div className="w-full h-full">
+          <MobilePDFViewer
+            fileUrl={file.url}
+            fileName={file.name}
+            onDownload={onDownload}
+          />
         </div>
       );
     }
+
 
     // Image Preview
     if (isImage) {
@@ -232,8 +198,8 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
               </div>
             </div>
 
-            {/* Preview Content */}
-            <div className="p-4 md:p-6 flex items-center justify-center min-h-[400px] overflow-auto">
+            {/* Preview Content - Full height for PDF viewer */}
+            <div className={`${file.type?.includes('pdf') ? 'h-[80vh]' : 'p-4 md:p-6 min-h-[400px]'} flex items-center justify-center overflow-auto`}>
               {renderPreview()}
             </div>
           </motion.div>
