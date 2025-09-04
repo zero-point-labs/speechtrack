@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ParentRoute } from '@/lib/auth-middleware';
+import { useAuth } from '@/lib/auth-middleware';
 import { databases, appwriteConfig } from '@/lib/appwrite.client';
 import { fileServiceSimple as fileService } from '@/lib/fileServiceSimple';
 import { Button } from '@/components/ui/button';
@@ -32,11 +32,19 @@ function PDFViewerContent() {
   const router = useRouter();
   const params = useParams();
   const fileId = params.fileId as string;
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   
   const [fileData, setFileData] = useState<FileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   // Detect mobile device
   useEffect(() => {
@@ -64,12 +72,20 @@ function PDFViewerContent() {
       setLoading(true);
       setError(null);
 
+      console.log('🔍 Loading file data for ID:', fileId);
+      console.log('🔍 Database config:', {
+        databaseId: appwriteConfig.databaseId,
+        sessionFilesCollection: appwriteConfig.collections.sessionFiles
+      });
+
       // Get file metadata from database
       const fileRecord = await databases.getDocument(
         appwriteConfig.databaseId!,
         appwriteConfig.collections.sessionFiles!,
         fileId
       );
+
+      console.log('📄 File record loaded:', fileRecord);
 
       const fileData: FileData = {
         id: fileRecord.$id,
@@ -82,11 +98,25 @@ function PDFViewerContent() {
       };
 
       setFileData(fileData);
-      console.log('📄 Loaded PDF file:', fileData.name);
+      console.log('✅ PDF file loaded successfully:', fileData.name);
 
-    } catch (error) {
-      console.error('Error loading file:', error);
-      setError('Αδυναμία φόρτωσης του αρχείου');
+    } catch (error: any) {
+      console.error('❌ Error loading file:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        type: error.type,
+        fileId: fileId
+      });
+      
+      // More specific error message
+      if (error.message?.includes('not found')) {
+        setError(`Το αρχείο δεν βρέθηκε (ID: ${fileId})`);
+      } else if (error.message?.includes('permission')) {
+        setError('Δεν έχετε δικαιώματα πρόσβασης σε αυτό το αρχείο');
+      } else {
+        setError(`Αδυναμία φόρτωσης του αρχείου: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -317,9 +347,5 @@ function PDFViewerContent() {
 }
 
 export default function PDFViewerPage() {
-  return (
-    <ParentRoute>
-      <PDFViewerContent />
-    </ParentRoute>
-  );
+  return <PDFViewerContent />;
 }
