@@ -474,14 +474,19 @@ function SessionEditPageContent() {
 
   // Handle file preview
   const handleFilePreview = (file: { id: string; name: string; type: string }) => {
-    // Create file object with proper URL for preview
-    const fileType = file.type || '';
-    const fileName = file.name || '';
+    const fileType = (file.type || '').toLowerCase();
     
+    // For PDFs, navigate to dedicated viewing page for better mobile experience
+    if (fileType.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) {
+      router.push(`/dashboard/pdf/${file.id}`);
+      return;
+    }
+    
+    // For other files, use modal preview
     const fileForPreview = {
       ...file,
       type: fileType,
-      url: fileService.getFileViewUrl(file.id) // Always use view URL for preview
+      url: fileService.getFileViewUrl(file.id)
     };
     setPreviewFile(fileForPreview);
     setShowFilePreview(true);

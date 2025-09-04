@@ -153,44 +153,17 @@
   }
 }
 
-/* React PDF Viewer Styles */
-@layer components {
-  .react-pdf__Page {
-    margin: 0 auto;
-    display: block;
-  }
-
-  .react-pdf__Page__canvas {
-    max-width: 100% !important;
-    height: auto !important;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  }
-
-  .react-pdf__Page__textLayer {
-    display: none !important; /* Disable text layer for better performance on mobile */
-  }
-
-  .react-pdf__Page__annotationLayer {
-    display: none !important; /* Disable annotations for cleaner mobile view */
-  }
-
-  /* Ensure PDFs are touch-friendly */
-  .react-pdf__Page {
-    touch-action: pan-x pan-y;
-    user-select: none;
+/* Mobile PDF iframe optimizations */
+@media (max-width: 768px) {
+  iframe[title*="pdf" i], iframe[src*="gviewer" i] {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
   }
 }
 
-/* Mobile PDF optimizations */
-@media (max-width: 768px) {
-  .react-pdf__Page__canvas {
-    width: 100% !important;
-    max-height: 60vh;
-    object-fit: contain;
-  }
-  
-  .react-pdf__Document {
-    width: 100%;
-  }
+/* Touch-friendly PDF viewing */
+.pdf-viewer-container {
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
 }

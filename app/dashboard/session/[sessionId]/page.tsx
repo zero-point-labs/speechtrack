@@ -392,17 +392,23 @@ function SessionPageContent() {
 
   // Handle file preview
   const handleFilePreview = useCallback((file: { id: string; name: string; type: string; url?: string }) => {
-    const fileType = file.type || '';
-    const fileName = file.name || '';
+    const fileType = (file.type || '').toLowerCase();
     
+    // For PDFs, navigate to dedicated viewing page for better mobile experience
+    if (fileType.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) {
+      router.push(`/dashboard/pdf/${file.id}`);
+      return;
+    }
+    
+    // For other files, use modal preview
     const fileForPreview = {
       ...file,
       type: fileType,
-      url: file.url || fileService.getFileViewUrl(file.id) // Use provided URL or generate one
+      url: file.url || fileService.getFileViewUrl(file.id)
     };
     setPreviewFile(fileForPreview);
     setShowFilePreview(true);
-  }, []);
+  }, [router]);
 
   // Handle file download
   const handleFileDownload = useCallback(async (file: { id: string; name: string; downloadUrl?: string }) => {

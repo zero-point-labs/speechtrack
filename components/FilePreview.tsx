@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import ReactPlayer from 'react-player';
 import { motion, AnimatePresence } from 'framer-motion';
-import MobilePDFViewer from './MobilePDFViewer';
 import { 
   X, 
   Download, 
@@ -62,15 +61,27 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
     const isImage = fileType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|webp)$/);
     const isVideo = fileType.includes('video') || fileName.match(/\.(mp4|mov|avi|mkv|wmv|flv)$/);
 
-    // PDF Preview - Mobile Optimized with react-pdf
+    // PDF Preview - Note: PDFs now open in dedicated page for mobile optimization
     if (isPdf) {
       return (
-        <div className="w-full h-full">
-          <MobilePDFViewer
-            fileUrl={file.url}
-            fileName={file.name}
-            onDownload={onDownload}
-          />
+        <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+          <FileText className="w-12 h-12 text-blue-500 mb-4" />
+          <p className="text-gray-700 text-center mb-4">
+            PDFs τώρα ανοίγουν σε αφιερωμένη σελίδα<br />
+            για καλύτερη εμπειρία στο κινητό
+          </p>
+          <div className="flex gap-2">
+            {onDownload && (
+              <Button onClick={onDownload} variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Κατέβασμα
+              </Button>
+            )}
+            <Button onClick={() => window.open(file.url, '_blank')} size="sm">
+              <Eye className="w-4 h-4 mr-2" />
+              Άνοιγμα PDF
+            </Button>
+          </div>
         </div>
       );
     }
