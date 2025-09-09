@@ -172,42 +172,42 @@ export default function FolderInfoModal({ isOpen, onClose, studentId, studentNam
 
           {/* Modal */}
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
           >
-            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FolderOpen className="w-5 h-5 text-blue-600" />
-                    Φάκελοι Συνεδριών - {studentName}
+            <Card className="w-full max-w-2xl max-h-[90vh] sm:max-h-[80vh] overflow-hidden">
+              <CardHeader className="pb-3 sm:pb-4">
+                <div className="flex items-start sm:items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                    <span className="leading-tight">Φάκελοι Συνεδριών - {studentName}</span>
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="w-8 h-8 p-0"
+                    className="w-8 h-8 p-0 flex-shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600 pr-8 sm:pr-0">
                   Προβολή όλων των φακέλων συνεδριών και της κατάστασης πληρωμής τους
                 </p>
               </CardHeader>
 
-              <CardContent className="space-y-4 max-h-96 overflow-y-auto">
+              <CardContent className="space-y-3 sm:space-y-4 max-h-[60vh] sm:max-h-96 overflow-y-auto px-4 sm:px-6">
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <span className="ml-3 text-gray-600">Φόρτωση φακέλων...</span>
+                    <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600 text-sm sm:text-base">Φόρτωση φακέλων...</span>
                   </div>
                 ) : folders.length === 0 ? (
                   <div className="text-center py-8">
-                    <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Δεν βρέθηκαν φάκελοι συνεδριών</p>
+                    <Folder className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 text-sm sm:text-base">Δεν βρέθηκαν φάκελοι συνεδριών</p>
                   </div>
                 ) : (
                   folders.map((folder) => {
@@ -218,30 +218,32 @@ export default function FolderInfoModal({ isOpen, onClose, studentId, studentNam
                         key={folder.$id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`border rounded-lg p-4 ${
+                        className={`border rounded-lg p-3 sm:p-4 ${
                           folder.isActive && folder.status === 'active' 
                             ? 'border-blue-300 bg-blue-50 shadow-md' 
                             : 'border-gray-200 bg-white'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-gray-900">{folder.name}</h3>
-                              {getFolderStatusBadge(folder)}
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-tight">{folder.name}</h3>
+                              <div className="flex-shrink-0">
+                                {getFolderStatusBadge(folder)}
+                              </div>
                             </div>
                             
                             {folder.description && (
                               <p className="text-sm text-gray-600 mb-3">{folder.description}</p>
                             )}
                             
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
                               <div>
                                 <div className="flex items-center gap-1 text-gray-500 mb-1">
                                   <Calendar className="w-3 h-3" />
                                   <span>Ημερομηνία Έναρξης</span>
                                 </div>
-                                <p className="font-medium">{new Date(folder.startDate).toLocaleDateString('el-GR')}</p>
+                                <p className="font-medium text-gray-900">{new Date(folder.startDate).toLocaleDateString('el-GR')}</p>
                               </div>
                               
                               <div>
@@ -249,16 +251,16 @@ export default function FolderInfoModal({ isOpen, onClose, studentId, studentNam
                                   <CheckCircle className="w-3 h-3" />
                                   <span>Συνεδρίες</span>
                                 </div>
-                                <p className="font-medium">{folder.completedSessions}/{folder.totalSessions}</p>
+                                <p className="font-medium text-gray-900">{folder.completedSessions}/{folder.totalSessions}</p>
                               </div>
                             </div>
                           </div>
 
-                          <div className="ml-4 text-right">
-                            <div className="mb-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-3 sm:mt-0 sm:ml-4">
+                            <div className="order-1 sm:order-2">
                               {getStatusBadge(paymentInfo.status)}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 order-2 sm:order-1 text-left sm:text-right">
                               {paymentInfo.total > 0 && (
                                 <span>{paymentInfo.paid}/{paymentInfo.total} πληρωμένες</span>
                               )}
