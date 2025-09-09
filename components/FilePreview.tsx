@@ -106,8 +106,45 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
       );
     }
 
-    // Video Preview - Enhanced Mobile Player
+    // Video Preview - Mobile gets dedicated page, desktop gets modal player
     if (isVideo) {
+      // For mobile devices, show a redirect option to dedicated video page
+      if (isMobile) {
+        return (
+          <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+            <Video className="w-12 h-12 text-purple-500 mb-4" />
+            <p className="text-gray-700 text-center mb-4">
+              Βίντεο τώρα ανοίγουν σε αφιερωμένη σελίδα<br />
+              για καλύτερη εμπειρία στο κινητό
+            </p>
+            <div className="flex gap-2">
+              {onDownload && (
+                <Button onClick={onDownload} variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Κατέβασμα
+                </Button>
+              )}
+              <Button 
+                onClick={() => {
+                  // Try to extract file ID from URL for dedicated video page
+                  const fileIdMatch = file.url.match(/\/file-view\/([^\/\?]+)/);
+                  if (fileIdMatch) {
+                    window.open(`/dashboard/video/${fileIdMatch[1]}`, '_blank');
+                  } else {
+                    window.open(file.url, '_blank');
+                  }
+                }} 
+                size="sm"
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Άνοιγμα Βίντεο
+              </Button>
+            </div>
+          </div>
+        );
+      }
+      
+      // Desktop gets the modal video player
       return (
         <MobileVideoPlayer 
           url={file.url} 

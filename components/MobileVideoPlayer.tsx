@@ -82,17 +82,19 @@ export default function MobileVideoPlayer({ url, fileName, isMobile }: MobileVid
       {isMobile && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-blue-800 text-sm text-center">
-            📱 Πατήστε το κουμπί ▶️ για αναπαραγωγή • Αν δεν λειτουργεί, δοκιμάστε "Νέα Καρτέλα"
+            📱 Για καλύτερη εμπειρία, το βίντεο θα ανοίξει σε αφιερωμένη σελίδα
           </p>
         </div>
       )}
 
-      {/* Video player with custom thumbnail */}
+      {/* Video player with iOS-specific fixes */}
       <div className="relative bg-black rounded-lg overflow-hidden shadow-lg">
         <video
           key={url}
           controls
           playsInline
+          webkit-playsinline="true" // iOS compatibility
+          x-webkit-airplay="allow" // Allow AirPlay
           preload="metadata"
           poster={thumbnail || undefined}
           className="w-full h-auto"
@@ -109,12 +111,22 @@ export default function MobileVideoPlayer({ url, fileName, isMobile }: MobileVid
           onCanPlay={() => console.log('Video ready to play')}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
+          onLoadedData={() => console.log('Video data loaded')}
         >
+          {/* Multiple source formats for better compatibility */}
+          <source src={url} type="video/mp4; codecs=avc1.42E01E,mp4a.40.2" />
           <source src={url} type="video/mp4" />
           <source src={url} type="video/quicktime" />
-          <source src={url} type="video/x-msvideo" />
+          <source src={url} type="video/webm" />
           <p className="text-white p-4 text-center">
             Ο browser σας δεν υποστηρίζει αναπαραγωγή βίντεο.
+            <br />
+            <button 
+              onClick={() => window.open(url, '_blank')}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Άνοιγμα εξωτερικά
+            </button>
           </p>
         </video>
 
@@ -172,15 +184,33 @@ export default function MobileVideoPlayer({ url, fileName, isMobile }: MobileVid
         )}
       </div>
 
-      {/* Fallback options always available */}
+      {/* Enhanced fallback options */}
       <div className="flex gap-3">
-        <Button
-          onClick={() => window.open(url, '_blank')}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          {isMobile ? 'Νέα Καρτέλα' : 'Άνοιγμα Εξωτερικά'}
-        </Button>
+        {isMobile ? (
+          <Button
+            onClick={() => {
+              // Try to extract file ID from URL for dedicated video page
+              const fileIdMatch = url.match(/\/file-view\/([^\/\?]+)/);
+              if (fileIdMatch) {
+                window.open(`/dashboard/video/${fileIdMatch[1]}`, '_blank');
+              } else {
+                window.open(url, '_blank');
+              }
+            }}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Πλήρης Οθόνη
+          </Button>
+        ) : (
+          <Button
+            onClick={() => window.open(url, '_blank')}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Άνοιγμα Εξωτερικά
+          </Button>
+        )}
         
         <Button
           onClick={() => {

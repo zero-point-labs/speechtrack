@@ -407,10 +407,20 @@ function SessionPageContent() {
   // Handle file preview
   const handleFilePreview = useCallback((file: { id: string; name: string; type: string; url?: string }) => {
     const fileType = (file.type || '').toLowerCase();
+    const fileName = file.name.toLowerCase();
+    
+    // Check if mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
     
     // For PDFs, navigate to dedicated viewing page for better mobile experience
-    if (fileType.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) {
+    if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
       router.push(`/dashboard/pdf/${file.id}`);
+      return;
+    }
+    
+    // For videos on mobile, navigate to dedicated viewing page for better experience
+    if (isMobile && (fileType.includes('video') || fileName.match(/\.(mp4|mov|avi|mkv|wmv|flv|webm)$/))) {
+      router.push(`/dashboard/video/${file.id}`);
       return;
     }
     
