@@ -250,17 +250,55 @@ function VideoPageContent() {
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
             <h2 className="text-xl font-semibold mb-2">Πρόβλημα αναπαραγωγής</h2>
             <p className="text-gray-300 mb-6">
-              Το βίντεο δεν μπόρεσε να αναπαραχθεί. Δοκιμάστε να το ανοίξετε σε νέα καρτέλα.
+              Το βίντεο δεν μπόρεσε να αναπαραχθεί. Δοκιμάστε τις παρακάτω επιλογές:
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="flex flex-col gap-3 justify-center max-w-sm mx-auto">
               <Button onClick={handleReload} className="bg-blue-600 hover:bg-blue-700">
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Επανάληψη
               </Button>
-              <Button onClick={() => window.open(videoFile.url, '_blank')} variant="outline">
+              <Button 
+                onClick={() => window.open(videoFile.url, '_blank')} 
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Άνοιγμα εξωτερικά
+                Άνοιγμα σε νέα καρτέλα
               </Button>
+              <Button 
+                onClick={() => {
+                  // Try to open in native video app on mobile
+                  if (isMobile) {
+                    const link = document.createElement('a');
+                    link.href = videoFile.url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.click();
+                  } else {
+                    window.open(videoFile.url, '_blank');
+                  }
+                }}
+                variant="outline"
+                className="border-white text-white hover:bg-white hover:text-black"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Άνοιγμα σε εφαρμογή βίντεο
+              </Button>
+              <Button 
+                onClick={handleDownload}
+                variant="outline"
+                className="border-gray-400 text-gray-400 hover:bg-gray-400 hover:text-black"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Κατέβασμα αρχείου
+              </Button>
+            </div>
+            
+            {/* Technical info for debugging */}
+            <div className="mt-8 text-xs text-gray-500 bg-gray-800 rounded p-3">
+              <p>Τεχνικές πληροφορίες:</p>
+              <p>Αρχείο: {videoFile.name}</p>
+              <p>Μέγεθος: {videoFile.size || 'Άγνωστο'}</p>
+              <p>Συσκευή: {isMobile ? 'Κινητό' : 'Desktop'}</p>
             </div>
           </div>
         ) : (
@@ -269,21 +307,36 @@ function VideoPageContent() {
             className="max-w-full max-h-full w-auto h-auto"
             controls={!isMobile} // Use native controls on desktop
             playsInline
-            preload="metadata"
             webkit-playsinline="true"
+            x-webkit-airplay="allow"
+            preload="metadata"
+            crossOrigin="anonymous"
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onError={(e) => {
               console.error('Video playback error:', e);
+              const video = e.target as HTMLVideoElement;
+              console.error('Video error details:', {
+                error: video.error,
+                networkState: video.networkState,
+                readyState: video.readyState,
+                src: video.currentSrc
+              });
               setVideoError(true);
             }}
             onLoadStart={() => console.log('Video loading started')}
+            onLoadedMetadata={() => console.log('Video metadata loaded')}
             onCanPlay={() => console.log('Video can play')}
+            onCanPlayThrough={() => console.log('Video can play through')}
+            onStalled={() => console.log('Video stalled')}
+            onWaiting={() => console.log('Video waiting')}
             onVolumeChange={(e) => {
               const video = e.target as HTMLVideoElement;
               setIsMuted(video.muted);
             }}
           >
+            {/* Multiple source formats for better compatibility */}
+            <source src={videoFile.url} type="video/mp4; codecs=avc1.42E01E,mp4a.40.2" />
             <source src={videoFile.url} type="video/mp4" />
             <source src={videoFile.url} type="video/quicktime" />
             <source src={videoFile.url} type="video/webm" />
@@ -294,7 +347,7 @@ function VideoPageContent() {
                 onClick={() => window.open(videoFile.url, '_blank')} 
                 className="mt-2"
               >
-                Κατέβασμα βίντεο
+                Άνοιγμα εξωτερικά
               </Button>
             </p>
           </video>
