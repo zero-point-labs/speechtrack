@@ -6,6 +6,7 @@ import { ParentRoute } from "@/lib/auth-middleware";
 import { databases, storage, appwriteConfig } from "@/lib/appwrite.client";
 import { fileServiceSimple as fileService } from "@/lib/fileServiceSimple";
 import FilePreview from "@/components/FilePreview";
+import VideoThumbnail from "@/components/VideoThumbnail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -649,21 +650,23 @@ function SessionPageContent() {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {session.materials.videos.map((video) => (
-                          <div key={video.id} className="bg-gray-50 rounded-lg overflow-hidden">
-                            <div className="aspect-video bg-gray-200 flex items-center justify-center">
-                              <Play className="w-12 h-12 text-gray-400" />
-                            </div>
+                          <div 
+                            key={video.id} 
+                            className="bg-gray-50 rounded-lg overflow-hidden group cursor-pointer hover:shadow-md hover:bg-gray-100 transition-all duration-200 active:scale-[0.98]"
+                            onClick={() => handleFilePreview(video)}
+                          >
+                            <VideoThumbnail 
+                              videoUrl={video.url}
+                              videoName={video.name}
+                              className="rounded-t-lg"
+                            />
                             <div className="p-3">
-                              <h5 className="font-medium text-gray-900 mb-1">{video.name}</h5>
-                              <p className="text-sm text-gray-600 mb-3">Διάρκεια: {video.duration}</p>
-                              <Button 
-                                size="sm" 
-                                className="w-full"
-                                onClick={() => handleFilePreview(video)}
-                              >
+                              <h5 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{video.name}</h5>
+                              <p className="text-sm text-gray-600 mb-3">Ανέβηκε: {video.uploadDate}</p>
+                              <div className="flex items-center justify-center w-full py-2 bg-blue-600 text-white rounded-md group-hover:bg-blue-700 transition-colors">
                                 <Play className="w-4 h-4 mr-2" />
-                                Αναπαραγωγή
-                              </Button>
+                                <span className="font-medium">Αναπαραγωγή</span>
+                              </div>
                             </div>
                           </div>
                         ))}

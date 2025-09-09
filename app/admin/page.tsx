@@ -525,7 +525,15 @@ function AdminPage() {
                     <Card key={user.$id} className="hover:shadow-lg transition-all duration-200 active:scale-[0.98] sm:active:scale-100">
                       <CardContent className="p-0">
                         {/* User Header - Mobile Optimized */}
-                        <div className="p-4 sm:p-6 border-b border-gray-100">
+                        <div 
+                          className="p-4 sm:p-6 border-b border-gray-100 md:cursor-default cursor-pointer md:hover:bg-transparent hover:bg-gray-50 transition-colors"
+                          onClick={() => {
+                            // Only make clickable on mobile
+                            if (window.innerWidth < 768) {
+                              toggleUserExpansion(user.$id);
+                            }
+                          }}
+                        >
                           <div className="flex items-start sm:items-center justify-between gap-3">
                             <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
                               <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
@@ -560,7 +568,8 @@ function AdminPage() {
                               </div>
                       </div>
                       
-                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                            {/* Desktop-only buttons */}
+                            <div className="hidden md:flex flex-col sm:flex-row items-end sm:items-center gap-2">
                 <Button
                                 onClick={() => toggleUserExpansion(user.$id)}
                   variant="outline"
@@ -589,6 +598,15 @@ function AdminPage() {
                                 )}
                 </Button>
             </div>
+            
+                            {/* Mobile-only expansion indicator */}
+                            <div className="md:hidden flex items-center text-gray-400">
+                              {expandedUsers.has(user.$id) ? (
+                                <ChevronDown className="w-5 h-5" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5" />
+                              )}
+                            </div>
                 </div>
               </div>
 
@@ -793,6 +811,37 @@ function AdminPage() {
                           >
                                           <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
                                           <span>{GREEK_TEXT.emailAction}</span>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    {/* Delete User Section - Always visible in expanded view */}
+                    <Card className="mt-4 border-red-200 bg-red-50">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium text-red-800 text-sm">Επικίνδυνη Ζώνη</h4>
+                            <p className="text-xs text-red-600 mt-1">Αυτή η ενέργεια δεν μπορεί να αναιρεθεί</p>
+                          </div>
+                          <Button
+                            onClick={() => handleDeleteUser(user.$id)}
+                            variant="outline"
+                            size="sm"
+                            disabled={deletingUserId === user.$id}
+                            className="text-red-600 border-red-300 hover:text-red-700 hover:bg-red-100 hover:border-red-400"
+                          >
+                            {deletingUserId === user.$id ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                                Διαγραφή...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Διαγραφή Χρήστη
+                              </>
+                            )}
                           </Button>
                         </div>
                       </CardContent>

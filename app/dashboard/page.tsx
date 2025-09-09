@@ -16,6 +16,7 @@ import SessionSnakeBoard from "@/components/SessionSnakeBoard";
 import FolderInfoModal from "@/components/FolderInfoModal";
 import RotatingBanner from "@/components/RotatingBanner";
 import ProfileEditor from "@/components/ProfileEditor";
+import VideoThumbnail from "@/components/VideoThumbnail";
 
 // Helper function to calculate age from date of birth
 const calculateAge = (dateOfBirth: string): number => {
@@ -1220,26 +1221,26 @@ function DashboardContent() {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.4 + index * 0.1 }}
-                          className="p-4 hover:bg-gray-50 transition-colors"
+                          className="p-4 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100"
+                          onClick={() => handleFilePreview(video)}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start space-x-3 flex-1 min-w-0">
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Video className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                              <div className="w-12 h-8 sm:w-16 sm:h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                <VideoThumbnail 
+                                  videoUrl={video.url}
+                                  videoName={video.name}
+                                  className="w-full h-full"
+                                />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{video.name}</h4>
+                                <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate group-hover:text-purple-600 transition-colors">{video.name}</h4>
                                 <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mt-1">{video.description}</p>
                               </div>
                             </div>
-                            <Button 
-                              size="sm" 
-                              className="bg-purple-500 hover:bg-purple-600 min-h-[36px] text-xs active:scale-95 flex-shrink-0"
-                              onClick={() => handleFilePreview(video)}
-                            >
-                              <PlayCircle className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
-                              <span className="hidden sm:inline">Αναπαραγωγή</span>
-                            </Button>
+                            <div className="flex items-center text-purple-600 flex-shrink-0">
+                              <PlayCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
                           </div>
                         </motion.div>
                       ))}
