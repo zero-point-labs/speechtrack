@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
-import ReactPlayer from 'react-player';
 import MobileVideoPlayer from './MobileVideoPlayer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
