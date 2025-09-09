@@ -217,12 +217,11 @@ function VideoPageContent() {
             
             <Button
               onClick={() => window.open(videoFile.url, '_blank')}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+              size="default"
             >
               <ExternalLink className="w-4 h-4" />
-              <span className="hidden sm:inline ml-2">Νέα καρτέλα</span>
+              <span className="ml-2">Νέα καρτέλα</span>
             </Button>
           </div>
         </div>
@@ -237,14 +236,7 @@ function VideoPageContent() {
       </div>
 
       {/* Video container */}
-      <div 
-        className="relative w-full h-screen flex items-center justify-center"
-        onClick={() => {
-          if (isMobile) {
-            setShowControls(!showControls);
-          }
-        }}
-      >
+      <div className="relative w-full h-screen flex items-center justify-center p-4">
         {videoError ? (
           <div className="text-center text-white p-8">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
@@ -304,13 +296,17 @@ function VideoPageContent() {
         ) : (
           <video
             ref={videoRef}
-            className="max-w-full max-h-full w-auto h-auto"
-            controls={!isMobile} // Use native controls on desktop
+            className="w-full h-full object-contain"
+            controls
             playsInline
             webkit-playsinline="true"
             x-webkit-airplay="allow"
             preload="metadata"
-            crossOrigin="anonymous"
+            style={{ 
+              minHeight: '300px',
+              maxHeight: '80vh',
+              backgroundColor: 'black'
+            }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onError={(e) => {
@@ -327,25 +323,19 @@ function VideoPageContent() {
             onLoadStart={() => console.log('Video loading started')}
             onLoadedMetadata={() => console.log('Video metadata loaded')}
             onCanPlay={() => console.log('Video can play')}
-            onCanPlayThrough={() => console.log('Video can play through')}
-            onStalled={() => console.log('Video stalled')}
-            onWaiting={() => console.log('Video waiting')}
             onVolumeChange={(e) => {
               const video = e.target as HTMLVideoElement;
               setIsMuted(video.muted);
             }}
           >
-            {/* Multiple source formats for better compatibility */}
-            <source src={videoFile.url} type="video/mp4; codecs=avc1.42E01E,mp4a.40.2" />
             <source src={videoFile.url} type="video/mp4" />
             <source src={videoFile.url} type="video/quicktime" />
-            <source src={videoFile.url} type="video/webm" />
             <p className="text-white text-center p-4">
               Ο browser σας δεν υποστηρίζει αναπαραγωγή βίντεο.
               <br />
               <Button 
                 onClick={() => window.open(videoFile.url, '_blank')} 
-                className="mt-2"
+                className="mt-2 bg-blue-600 hover:bg-blue-700"
               >
                 Άνοιγμα εξωτερικά
               </Button>
@@ -353,53 +343,21 @@ function VideoPageContent() {
           </video>
         )}
 
-        {/* Custom mobile controls */}
-        {isMobile && !videoError && (
-          <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
-            showControls ? 'opacity-100' : 'opacity-0'
-          }`}>
-            <div className="flex items-center justify-center space-x-6">
-              <Button
-                onClick={handleMuteToggle}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/20"
-              >
-                {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-              </Button>
-              
-              <Button
-                onClick={handlePlayPause}
-                variant="ghost"
-                size="lg"
-                className="text-white hover:bg-white/20"
-              >
-                {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
-              </Button>
-              
-              <Button
-                onClick={handleFullscreen}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/20"
-              >
-                <Maximize className="w-6 h-6" />
-              </Button>
-            </div>
+        {/* Fallback button if video doesn't work */}
+        {!videoError && (
+          <div className="absolute bottom-4 right-4">
+            <Button
+              onClick={() => window.open(videoFile.url, '_blank')}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+              size="sm"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Νέα καρτέλα
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Mobile help text */}
-      {isMobile && (
-        <div className={`absolute top-20 left-4 right-4 transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}>
-          <div className="bg-blue-900/80 backdrop-blur-sm text-white text-sm p-3 rounded-lg text-center">
-            📱 Πατήστε το βίντεο για να εμφανίσετε/αποκρύψετε τα χειριστήρια
-          </div>
-        </div>
-      )}
     </div>
   );
 }
