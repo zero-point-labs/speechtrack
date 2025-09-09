@@ -36,6 +36,8 @@ interface SessionData {
   duration: string;
   status: "completed" | "locked" | "canceled";
   isPaid: boolean;
+  isGESY?: boolean;
+  gesyNote?: string;
   therapist: string;
   goals: string[];
   description: string;
@@ -247,16 +249,25 @@ function SessionPageContent() {
           console.error('Error loading session files:', error);
         }
 
-        // Parse JSON fields
+        // Parse JSON fields and ΓεΣΥ note from achievement field
         let achievement = null;
         let feedback = [];
+        let gesyNote = '';
         
+        // Extract ΓεΣΥ note from achievement field (repurposed for ΓεΣΥ note storage)
         try {
           if (session.achievement) {
-            achievement = JSON.parse(session.achievement);
+            // If it's a JSON object (old achievement), ignore it
+            // If it's a simple string, use it as ΓεΣΥ note
+            const parsed = JSON.parse(session.achievement);
+            if (typeof parsed === 'string') {
+              gesyNote = parsed;
+            }
+            // Otherwise, ignore old achievement data
           }
         } catch (error) {
-          console.error('Error parsing achievement:', error);
+          // If parsing fails, treat as plain string (ΓεΣΥ note)
+          gesyNote = session.achievement || '';
         }
         
         try {
@@ -295,6 +306,8 @@ function SessionPageContent() {
           duration: session.duration + ' λεπτά',
           status: session.status === 'completed' ? 'completed' : session.status === 'locked' ? 'locked' : 'locked',
           isPaid: session.isPaid || false,
+          isGESY: session.isGESY || false, // Add ΓεΣΥ status
+          gesyNote, // Add ΓεΣΥ note from achievement field
           therapist: "Μαριλένα Νέστωρος", // Default therapist name
           goals: [], // TODO: Load from session goals
           description: session.sessionSummary || session.therapistNotes || session.title,
@@ -506,6 +519,19 @@ function SessionPageContent() {
               <Badge className={`${session.isPaid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {session.isPaid ? 'Πληρωμένη' : 'Απλήρωτη'}
               </Badge>
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">ΓεΣΥ</h4>
+              <div className="space-y-1">
+                <Badge className={`${session.isGESY ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                  {session.isGESY ? 'ΓεΣΥ' : 'Χωρίς ΓεΣΥ'}
+                </Badge>
+                {session.isGESY && session.gesyNote && (
+                  <p className="text-sm text-gray-600 italic">
+                    {session.gesyNote}
+                  </p>
+                )}
+              </div>
             </div>
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Περιγραφή</h4>

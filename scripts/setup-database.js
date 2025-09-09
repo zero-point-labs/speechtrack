@@ -43,6 +43,8 @@ const COLLECTIONS = {
       { key: 'duration', type: 'string', size: 50, required: true },
       { key: 'status', type: 'enum', elements: ['locked', 'available', 'completed', 'cancelled'], required: true },
       { key: 'isPaid', type: 'boolean', required: true, default: false },
+      { key: 'isGESY', type: 'boolean', required: false, default: false },
+      { key: 'gesyNote', type: 'string', size: 500, required: false },
       { key: 'therapistNotes', type: 'string', size: 5000, required: false },
       { key: 'originalDate', type: 'datetime', required: false }
     ],

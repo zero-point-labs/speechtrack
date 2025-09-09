@@ -12,10 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
 import { fileServiceSimple as fileService } from "@/lib/fileServiceSimple";
 import FilePreview from "@/components/FilePreview";
-import EnhancedProgressCard from "@/components/EnhancedProgressCard";
 import SessionSnakeBoard from "@/components/SessionSnakeBoard";
-import HeroStepsProgress from "@/components/HeroStepsProgress";
-import CustomAchievementJourney from "@/components/CustomAchievementJourney";
+import FolderInfoModal from "@/components/FolderInfoModal";
+import RotatingBanner from "@/components/RotatingBanner";
+import ProfileEditor from "@/components/ProfileEditor";
 
 // Helper function to calculate age from date of birth
 const calculateAge = (dateOfBirth: string): number => {
@@ -64,21 +64,12 @@ import {
   Mail,
   MapPin,
   Key,
-  AlertCircle
+  AlertCircle,
+  FolderOpen,
+  Edit3
 } from "lucide-react";
 
 // TypeScript interfaces
-interface Message {
-  $id: string;
-  studentId: string;
-  senderId: string;
-  receiverId: string;
-  content: string;
-  isRead: boolean;
-  messageType: 'text' | 'system' | 'notification';
-  $createdAt: string;
-  $updatedAt: string;
-}
 
 interface Student {
   $id: string;
@@ -135,6 +126,8 @@ interface SessionData {
   duration: string;
   status: 'completed' | 'locked' | 'canceled';
   isPaid?: boolean;
+  isGESY?: boolean;
+  gesyNote?: string;
   description: string;
   sessionSummary?: string;
   goals: string[];
@@ -368,11 +361,14 @@ function DashboardContent() {
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
   const [firstModalOpen, setFirstModalOpen] = useState(true);
-  const [progressView, setProgressView] = useState<'classic' | 'hero' | 'achievement' | 'board'>('classic');
+  const [progressView, setProgressView] = useState<'board'>('board');
   const [linkedStudent, setLinkedStudent] = useState<Student | null>(null);
   const [checkingStudent, setCheckingStudent] = useState(true);
   const [previewFile, setPreviewFile] = useState<{ id: string; name: string; type: string; url: string } | null>(null);
   const [showFilePreview, setShowFilePreview] = useState(false);
+  const [showFolderInfo, setShowFolderInfo] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [extendedUserData, setExtendedUserData] = useState<any>(null);
   const router = useRouter();
 
   // State for real data
@@ -436,23 +432,91 @@ function DashboardContent() {
     };
 
     checkLinkedStudent();
+    
+    // Also load extended user data
+    if (user?.id && !isAdmin) {
+      loadExtendedUserData();
+    }
   }, [user?.id, isAdmin]);
 
-  // Load messages for the linked student - DISABLED (messages collection removed)
-  const loadMessages = useCallback(async () => {
-    // Messages functionality disabled - collection was removed
-    setMessages([]);
-    setMessagesLoading(false);
-  }, []);
+  // Load extended user data for profile info
+  const loadExtendedUserData = async () => {
+    try {
+      if (!user?.id) return;
 
+      const usersExtendedCollectionId = appwriteConfig.collections.usersExtended || '68aef5f19770fc264f6d';
+      const databaseId = appwriteConfig.databaseId || '68ab99977aad1233b50c';
 
+      const extendedDataResponse = await databases.listDocuments(
+        databaseId,
+        usersExtendedCollectionId,
+        [Query.equal('userId', user.id)]
+      );
 
-  // Load messages when linked student changes
-  useEffect(() => {
-    if (linkedStudent) {
-      loadMessages();
+      if (extendedDataResponse.documents.length > 0) {
+        setExtendedUserData(extendedDataResponse.documents[0]);
+      }
+    } catch (error) {
+      console.error('Error loading extended user data:', error);
     }
-  }, [linkedStudent, loadMessages]);
+  };
+
+  // Handle profile update
+  const handleProfileUpdate = async (updatedData: { phone: string; profilePicture?: string }) => {
+    try {
+      if (!user?.id) throw new Error('User ID not found');
+
+      // Update users_extended collection
+      const usersExtendedCollectionId = appwriteConfig.collections.usersExtended || '68aef5f19770fc264f6d';
+      const databaseId = appwriteConfig.databaseId || '68ab99977aad1233b50c';
+
+      // First, get the user's extended data document
+      const extendedDataResponse = await databases.listDocuments(
+        databaseId,
+        usersExtendedCollectionId,
+        [Query.equal('userId', user.id)]
+      );
+
+      if (extendedDataResponse.documents.length > 0) {
+        // Update existing document
+        const extendedDoc = extendedDataResponse.documents[0];
+        await databases.updateDocument(
+          databaseId,
+          usersExtendedCollectionId,
+          extendedDoc.$id,
+          {
+            phone: updatedData.phone,
+            profilePicture: updatedData.profilePicture || ''
+          }
+        );
+      } else {
+        // Create new extended data document
+        await databases.createDocument(
+          databaseId,
+          usersExtendedCollectionId,
+          'unique()',
+          {
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+            phone: updatedData.phone,
+            profilePicture: updatedData.profilePicture || '',
+            createdAt: new Date().toISOString()
+          }
+        );
+      }
+
+      // Reload extended user data to show updated info
+      await loadExtendedUserData();
+      setEditingProfile(false);
+      
+      console.log('✅ Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
 
   // Load global mystery session completion status
   const loadGlobalMysteryStatus = useCallback(async (studentId: string, totalSessionsCount: number) => {
@@ -647,16 +711,25 @@ function DashboardContent() {
           console.error('Error loading session files:', error);
         }
         
-        // Parse JSON fields
+        // Parse JSON fields and ΓεΣΥ note from achievement field
         let achievement = null;
         let feedback = [];
+        let gesyNote = '';
         
+        // Extract ΓεΣΥ note from achievement field (repurposed for ΓεΣΥ note storage)
         try {
           if (session.achievement) {
-            achievement = JSON.parse(session.achievement);
+            // If it's a JSON object (old achievement), ignore it
+            // If it's a simple string, use it as ΓεΣΥ note
+            const parsed = JSON.parse(session.achievement);
+            if (typeof parsed === 'string') {
+              gesyNote = parsed;
+            }
+            // Otherwise, ignore old achievement data
           }
         } catch (error) {
-          console.error('Error parsing achievement:', error);
+          // If parsing fails, treat as plain string (ΓεΣΥ note)
+          gesyNote = session.achievement || '';
         }
         
         try {
@@ -694,6 +767,8 @@ function DashboardContent() {
           status: session.status === 'cancelled' ? 'canceled' : session.status,
           isLocked: session.status === 'locked',
           isPaid: session.isPaid,
+          isGESY: session.isGESY || false, // Add ΓεΣΥ status
+          gesyNote, // Add ΓεΣΥ note from achievement field
           therapistNotes: session.therapistNotes || '',
           homework: [],
           achievements: achievement ? [achievement] : [], // Convert single achievement to array for UI compatibility
@@ -988,6 +1063,19 @@ function DashboardContent() {
                       <Badge className={selectedSession.isPaid ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
                         {selectedSession.isPaid ? "Πληρωμένη" : "Απλήρωτη"}
                       </Badge>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 mb-1">ΓεΣΥ</h3>
+                      <div className="space-y-1">
+                        <Badge className={selectedSession.isGESY ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}>
+                          {selectedSession.isGESY ? "ΓεΣΥ" : "Χωρίς ΓεΣΥ"}
+                        </Badge>
+                        {selectedSession.isGESY && selectedSession.gesyNote && (
+                          <p className="text-xs text-gray-600 mt-1 italic">
+                            {selectedSession.gesyNote}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1460,171 +1548,41 @@ function DashboardContent() {
   ]);
 
   const JourneyBoard = () => {
-    // Convert sessions to format needed by HeroStepsProgress
-    const heroSessions: Session[] = realSessions.map((session, index) => ({
-      id: session.$id,
-      sessionNumber: session.sessionNumber || index + 1,
-      status: session.status as "completed" | "available" | "locked",
-      date: session.$createdAt,
-      title: session.title || `Συνεδρία ${session.sessionNumber || index + 1}`
-    }));
-
-    const currentSessionIndex = realSessions.findIndex(s => s.status === "available") || 0;
 
     return (
       <div className="space-y-8 pb-8 md:pb-0">
-        {/* Progress View Toggle */}
-        <div className="flex justify-end mb-4">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <Button
-              variant={progressView === 'classic' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setProgressView('classic')}
-              className="text-xs"
-            >
-              Κλασσική
-            </Button>
-            <Button
-              variant={progressView === 'hero' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setProgressView('hero')}
-              className="text-xs flex items-center space-x-1"
-            >
-              <Star className="w-3 h-3" />
-              <span>Ήρωας</span>
-            </Button>
-            <Button
-              variant={progressView === 'achievement' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setProgressView('achievement')}
-              className="text-xs flex items-center space-x-1"
-            >
-              <Trophy className="w-3 h-3" />
-              <span>Επιτεύγματα</span>
-            </Button>
-            <Button
-              variant={progressView === 'board' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setProgressView('board')}
-              className="text-xs flex items-center space-x-1"
-            >
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 3h4v4H3V3zm6 0h4v4H9V3zm6 0h4v4h-4V3zM3 9h4v4H3V9zm6 0h4v4H9V9zm6 0h4v4h-4V9zM3 15h4v4H3v-4zm6 0h4v4H9v-4zm6 0h4v4h-4v-4z"/>
-              </svg>
-              <span>Πίνακας</span>
-            </Button>
-          </div>
-        </div>
 
-        {/* Progress Display */}
-        {progressView === 'hero' ? (
-          <HeroStepsProgress
-            studentName={linkedStudent?.name || "Εμμας"}
-            sessions={heroSessions}
-            currentSessionIndex={currentSessionIndex}
-            onSessionClick={(session) => {
-              const originalSession = realSessions.find(s => s.$id === session.id);
-              if (originalSession) {
-                setSelectedSession(originalSession);
-              }
-            }}
-            showParentInfo={true}
-          />
-        ) : progressView === 'achievement' ? (
-          <CustomAchievementJourney
-            studentId={linkedStudent?.$id || ''}
-            studentName={linkedStudent?.name || "Εμμας"}
-            onStepClick={(step) => {
-              console.log('Step clicked:', step);
-              // You could add step-specific actions here
-            }}
-            showParentInfo={false}
-          />
-        ) : progressView === 'board' ? (
-          <SessionSnakeBoard
-            sessions={realSessions.map(session => ({
-              id: session.id,
-              sessionNumber: session.sessionNumber || 0,
-              title: session.title,
-              date: session.date,
-              duration: session.duration,
-              status: session.status as 'completed' | 'locked' | 'available' | 'canceled',
-              isPaid: session.isPaid,
-              achievement: session.achievement
-            }))}
-            studentName={linkedStudent?.name || "Εμμας"}
-            onSessionClick={(session) => {
-              const originalSession = realSessions.find(s => s.id === session.id);
-              if (originalSession) {
-                setSelectedSession(originalSession);
-              }
-            }}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalSessions={totalSessions}
-            completedSessions={completedSessions}
-            globalMysteryStatus={globalMysteryStatus}
-            onPageChange={async (page) => {
-              if (linkedStudent) {
-                await loadSessionsForStudent(linkedStudent.$id, page);
-              }
-            }}
-            loading={loadingPage}
-          />
-        ) : (
-          <EnhancedProgressCard
-            studentName={linkedStudent?.name || "Εμμας"}
-            completedSessions={calculateStats().completed}
-            totalSessions={calculateStats().total}
-            remainingSessions={calculateStats().remaining}
-            streak={linkedStudent?.streak || 0}
-            level={linkedStudent?.level || "Αρχάριος"}
-            achievements={linkedStudent?.achievements || []}
-          />
-        )}
+        {/* Rotating Banner */}
+        <RotatingBanner className="mb-6" />
 
-      {/* Pagination Controls - Hidden for board view since it has its own */}
-      {totalPages > 1 && progressView !== 'board' && (
-        <div className="flex items-center justify-between bg-white rounded-lg border p-4">
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePreviousPage}
-              disabled={currentPage === 1 || loadingPage}
-              className="flex items-center space-x-1"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Προηγούμενη</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNextPage}
-              disabled={currentPage === totalPages || loadingPage}
-              className="flex items-center space-x-1"
-            >
-              <span>Επόμενη</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {loadingPage && (
-              <div className="flex items-center space-x-2 text-blue-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm">Φόρτωση...</span>
-              </div>
-            )}
-            <span className="text-sm text-gray-600">
-              Σελίδα {currentPage} από {totalPages}
-            </span>
-            <span className="text-xs text-gray-500">
-              ({realSessions.length} από {totalSessions} συνεδρίες)
-            </span>
-          </div>
-        </div>
-      )}
+        {/* Progress Display - Board View Only */}
+        <SessionSnakeBoard
+          sessions={realSessions.map(session => ({
+            id: session.id,
+            sessionNumber: session.sessionNumber || 0,
+            title: session.title,
+            date: session.date,
+            duration: session.duration,
+            status: session.status as 'completed' | 'locked' | 'available' | 'canceled',
+            isPaid: session.isPaid,
+            isGESY: session.isGESY,
+            gesyNote: session.gesyNote,
+            achievement: session.achievement
+          }))}
+          studentName={linkedStudent?.name || "Εμμας"}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalSessions={totalSessions}
+          completedSessions={completedSessions}
+          globalMysteryStatus={globalMysteryStatus}
+          onPageChange={async (page) => {
+            if (linkedStudent) {
+              await loadSessionsForStudent(linkedStudent.$id, page);
+            }
+          }}
+          loading={loadingPage}
+        />
+
 
       {/* Timeline */}
       <div className="relative px-2 md:px-0">
@@ -1831,60 +1789,79 @@ function DashboardContent() {
   };
 
   const ProfileTab = () => {
-    // Parse parent contact info from linkedStudent
+    // Parse parent contact info from user auth and users_extended data
     const getParentContactInfo = () => {
-      if (!linkedStudent?.parentContact) {
-        return { name: 'Δεν υπάρχουν στοιχεία', phone: '-', email: '-' };
-      }
-      
-      try {
-        const contact = typeof linkedStudent.parentContact === 'string' 
-          ? JSON.parse(linkedStudent.parentContact) 
-          : linkedStudent.parentContact;
-        return {
-          name: contact.name || 'Δεν υπάρχουν στοιχεία',
-          phone: contact.phone || '-',
-          email: contact.email || '-'
-        };
-      } catch (error) {
-        console.error('Error parsing parent contact:', error);
-        return { name: 'Δεν υπάρχουν στοιχεία', phone: '-', email: '-' };
-      }
+      return {
+        name: user?.name || 'Δεν υπάρχουν στοιχεία',
+        phone: extendedUserData?.phone || user?.phone || '-',
+        email: user?.email || '-',
+        profilePicture: extendedUserData?.profilePicture || ''
+      };
     };
 
     const parentContact = getParentContactInfo();
-    const nextSession = realSessions.find(s => s.status === 'locked') || realSessions.find(s => s.status === 'completed');
+    
+    // Debug: Log contact info to understand the data structure
+    console.log('Debug - linkedStudent:', linkedStudent);
+    console.log('Debug - user:', user);
+    console.log('Debug - parentContact:', parentContact);
+    // Find next session (first locked session, or if none, first available)
+    const nextSession = realSessions.find(s => s.status === 'locked') || 
+                       realSessions.find(s => s.status === 'available') ||
+                       realSessions.find(s => s.status === 'completed');
 
     return (
       <div className="space-y-6 pb-32 md:pb-8">
-        {/* Logout Section */}
+        {/* Account Settings */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Account Settings</h3>
-                <p className="text-sm text-gray-600">Manage your account and logout</p>
+                <h3 className="text-lg font-semibold text-gray-900">Ρυθμίσεις Λογαριασμού</h3>
+                <p className="text-sm text-gray-600">Διαχείριση προφίλ και αποσύνδεση</p>
               </div>
-              <Button
-                onClick={logout}
-                variant="outline"
-                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-              >
-                Logout
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setEditingProfile(!editingProfile)}
+                  variant="outline"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                >
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  {editingProfile ? 'Ακύρωση' : 'Επεξεργασία'}
+                </Button>
+                <Button
+                  onClick={logout}
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                >
+                  Αποσύνδεση
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Child Profile Card */}
-        {linkedStudent ? (
+        {/* Profile Editor or Child Profile Card */}
+        {editingProfile ? (
+          <ProfileEditor
+            user={user}
+            linkedStudent={linkedStudent}
+            parentContact={parentContact}
+            onSave={handleProfileUpdate}
+            onCancel={() => setEditingProfile(false)}
+          />
+        ) : linkedStudent ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-3">
                 <Avatar className="w-12 h-12">
-                  <AvatarFallback className="bg-blue-100 text-blue-600 text-lg font-semibold">
-                    {linkedStudent.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
+                  {parentContact.profilePicture ? (
+                    <AvatarImage src={parentContact.profilePicture} alt="Profile" />
+                  ) : (
+                    <AvatarFallback className="bg-blue-100 text-blue-600 text-lg font-semibold">
+                      {linkedStudent.name.split(' ').map(n => n[0]).join('')}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">{linkedStudent.name}</h2>
@@ -1905,37 +1882,75 @@ function DashboardContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="font-medium text-gray-900 mb-3">Βασικά Στοιχεία</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Θεραπευτής:</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-2">
+                        <User className="w-3 h-3" />
+                        Θεραπευτής:
+                      </span>
                       <span className="font-medium">Μαριλένα Νέστωρος</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Ημερομηνία εγγραφής:</span>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-2">
+                        <Calendar className="w-3 h-3" />
+                        Ημερομηνία εγγραφής:
+                      </span>
                       <span className="font-medium">{new Date(linkedStudent.joinDate).toLocaleDateString('el-GR')}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Επόμενη συνεδρία:</span>
-                      <span className="font-medium">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-2">
+                        <Clock className="w-3 h-3" />
+                        Επόμενη συνεδρία:
+                      </span>
+                      <span className={`font-medium ${nextSession ? 'text-blue-600' : 'text-gray-400'}`}>
                         {nextSession ? new Date(nextSession.date).toLocaleDateString('el-GR') : 'Δεν υπάρχει'}
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-2">
+                        <Trophy className="w-3 h-3" />
+                        Κατάσταση:
+                      </span>
+                      <Badge className={`${
+                        linkedStudent.status === 'active' ? 'bg-green-100 text-green-800' :
+                        linkedStudent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {linkedStudent.status === 'active' ? 'Ενεργός' :
+                         linkedStudent.status === 'inactive' ? 'Ανενεργός' : 'Ολοκληρώθηκε'}
+                      </Badge>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Περίληψη Προόδου</h3>
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-blue-900">Συνεδρίες που Ολοκληρώθηκαν</span>
-                      <span className="text-sm font-bold text-blue-900">
-                        {calculateStats().completed}/{calculateStats().total}
-                      </span>
+                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-blue-500" />
+                    Περίληψη Προόδου
+                  </h3>
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-100">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-blue-900">Συνεδρίες που Ολοκληρώθηκαν</span>
+                        <span className="text-lg font-bold text-blue-900">
+                          {calculateStats().completed}/{calculateStats().total}
+                        </span>
+                      </div>
+                      <Progress 
+                        value={calculateStats().percentage} 
+                        className="h-3 bg-blue-100"
+                      />
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-blue-700">Πρόοδος</span>
+                        <span className="font-semibold text-blue-800">{calculateStats().percentage}%</span>
+                      </div>
+                      {calculateStats().remaining > 0 && (
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-blue-700">Υπολειπόμενες συνεδρίες</span>
+                          <span className="font-medium text-blue-800">{calculateStats().remaining}</span>
+                        </div>
+                      )}
                     </div>
-                    <Progress 
-                      value={calculateStats().percentage} 
-                      className="h-2"
-                    />
                   </div>
                 </div>
               </div>
@@ -1946,32 +1961,79 @@ function DashboardContent() {
                   <User className="w-4 h-4 mr-2 text-blue-500" />
                   Στοιχεία Γονέα/Κηδεμόνα
                 </h3>
-                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-lg border border-gray-200 space-y-4">
                   <div className="flex items-center space-x-3">
-                    <User className="w-4 h-4 text-gray-500" />
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{parentContact.name}</p>
-                      <p className="text-xs text-gray-600">Γονέας/Κηδεμόνας</p>
+                      <p className="text-base font-semibold text-gray-900">{parentContact.name}</p>
+                      <p className="text-sm text-gray-600">Γονέας/Κηδεμόνας</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="flex items-center space-x-3">
-                      <Phone className="w-4 h-4 text-gray-500" />
-                      <div>
+                    <div className="flex items-center space-x-3 group">
+                      <Phone className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors" />
+                      <div className="flex-1">
                         <p className="text-xs text-gray-600">Τηλέφωνο</p>
-                        <p className="text-sm font-medium text-gray-900">{parentContact.phone}</p>
+                        {parentContact.phone !== '-' ? (
+                          <a
+                            href={`tel:${parentContact.phone}`}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {parentContact.phone}
+                          </a>
+                        ) : (
+                          <p className="text-sm font-medium text-gray-400">Δεν υπάρχει</p>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      <Mail className="w-4 h-4 text-gray-500" />
-                      <div>
+                    <div className="flex items-center space-x-3 group">
+                      <Mail className="w-4 h-4 text-gray-500 group-hover:text-blue-500 transition-colors" />
+                      <div className="flex-1">
                         <p className="text-xs text-gray-600">Email</p>
-                        <p className="text-sm font-medium text-gray-900">{parentContact.email}</p>
+                        {parentContact.email !== '-' ? (
+                          <a
+                            href={`mailto:${parentContact.email}`}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors break-all"
+                          >
+                            {parentContact.email}
+                          </a>
+                        ) : (
+                          <p className="text-sm font-medium text-gray-400">Δεν υπάρχει</p>
+                        )}
                       </div>
                     </div>
                   </div>
+                  
+                  {(parentContact.phone !== '-' || parentContact.email !== '-') && (
+                    <div className="flex gap-3 pt-3 border-t border-gray-200">
+                      {parentContact.phone !== '-' && (
+                        <Button
+                          onClick={() => window.open(`tel:${parentContact.phone}`, '_self')}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2 flex-1 justify-center hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                        >
+                          <Phone className="w-4 h-4" />
+                          <span>Κλήση</span>
+                        </Button>
+                      )}
+                      {parentContact.email !== '-' && (
+                        <Button
+                          onClick={() => window.open(`mailto:${parentContact.email}`, '_self')}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2 flex-1 justify-center hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                        >
+                          <Mail className="w-4 h-4" />
+                          <span>Email</span>
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -2172,7 +2234,15 @@ function DashboardContent() {
                 <User className="w-4 h-4" />
                 <span>Προφίλ Παιδιού</span>
               </button>
-              
+
+              {/* Folder Info Button */}
+              <button
+                onClick={() => setShowFolderInfo(true)}
+                className="flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50"
+              >
+                <FolderOpen className="w-4 h-4" />
+                <span>Φάκελοι</span>
+              </button>
 
             </div>
           </div>
@@ -2251,6 +2321,18 @@ function DashboardContent() {
               />
             )}
           </motion.button>
+
+          {/* Mobile Folder Info Button */}
+          <motion.button
+            type="button"
+            onClick={() => setShowFolderInfo(true)}
+            className="flex flex-col items-center py-3 px-4 rounded-xl transition-all duration-300 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <FolderOpen className="w-6 h-6 mb-1" />
+            <span className="text-xs font-medium">Φάκελοι</span>
+          </motion.button>
           
 
         </div>
@@ -2269,6 +2351,16 @@ function DashboardContent() {
           isOpen={showFilePreview}
           onClose={() => { setShowFilePreview(false); setPreviewFile(null); }}
           onDownload={() => handleFileDownload(previewFile)}
+        />
+      )}
+
+      {/* Folder Info Modal */}
+      {linkedStudent && (
+        <FolderInfoModal
+          isOpen={showFolderInfo}
+          onClose={() => setShowFolderInfo(false)}
+          studentId={linkedStudent.$id}
+          studentName={linkedStudent.name}
         />
       )}
       </div>

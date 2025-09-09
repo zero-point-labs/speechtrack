@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-middleware";
 import { databases, appwriteConfig, Query } from "@/lib/appwrite.client";
 import { 
@@ -24,6 +25,7 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Home
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -131,6 +133,7 @@ interface UserExtended {
   email?: string;
   phone: string;
   address?: string;
+  profilePicture?: string;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -184,6 +187,12 @@ function AdminPage() {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const USERS_PER_PAGE = 20;
+  
   const { user, isAuthenticated, isAdmin, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -196,19 +205,35 @@ function AdminPage() {
     }
   }, [isAuthenticated, isAdmin, authLoading, router]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page: number = currentPage) => {
     try {
       setLoading(true);
       setError("");
 
-      // Get all users from users_extended
+      // Get all users from users_extended with pagination
       const usersExtendedCollectionId = appwriteConfig.collections.usersExtended || '68aef5f19770fc264f6d';
       const databaseId = appwriteConfig.databaseId || '68ab99977aad1233b50c';
       
+      // First, get total count for pagination
+      const totalCountResult = await databases.listDocuments(
+        databaseId,
+        usersExtendedCollectionId,
+        [Query.limit(1)]
+      );
+      
+      const totalCount = totalCountResult.total;
+      setTotalUsers(totalCount);
+      setTotalPages(Math.ceil(totalCount / USERS_PER_PAGE));
+      
+      // Get paginated users
       const usersExtendedResult = await databases.listDocuments(
         databaseId,
         usersExtendedCollectionId,
-        [Query.orderDesc('createdAt'), Query.limit(100)]
+        [
+          Query.orderDesc('createdAt'), 
+          Query.limit(USERS_PER_PAGE),
+          Query.offset((page - 1) * USERS_PER_PAGE)
+        ]
       );
 
       // Get all students to count children per parent
@@ -289,9 +314,27 @@ function AdminPage() {
 
   useEffect(() => {
     if (isAuthenticated && isAdmin) {
-      fetchUsers();
+      fetchUsers(1);
     }
   }, [isAuthenticated, isAdmin]);
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchUsers(page);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1);
+    }
+  };
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm(GREEK_TEXT.confirmDelete)) {
@@ -321,6 +364,24 @@ function AdminPage() {
       setError(GREEK_TEXT.errorOccurred);
     } finally {
       setDeletingUserId(null);
+    }
+  };
+
+  const handleCreateNewSession = async (user: UserWithDetails) => {
+    // Find a child with active sessions to create a session for
+    const activeChild = user.children.find(child => child.status === 'active');
+    
+    if (!activeChild) {
+      alert('Δεν βρέθηκε ενεργό παιδί για τη δημιουργία συνεδρίας');
+      return;
+    }
+
+    try {
+      // Navigate to the folder manager where they can create sessions
+      router.push(`/admin/students/${activeChild.$id}/folders`);
+    } catch (error) {
+      console.error('Error navigating to session creation:', error);
+      alert('Σφάλμα κατά την πλοήγηση στη δημιουργία συνεδρίας');
     }
   };
 
@@ -395,15 +456,6 @@ function AdminPage() {
                 <Home className="w-4 h-4" />
                 <span className="text-sm font-medium">Dashboard</span>
               </Button>
-              <Button
-                onClick={() => router.push("/admin/users")}
-                variant="outline" 
-                size="sm"
-                className="flex items-center gap-2 px-3 py-2 min-h-[44px] flex-1 sm:flex-none justify-center"
-              >
-                <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">{GREEK_TEXT.userList}</span>
-            </Button>
                           </div>
                     </div>
                   </div>
@@ -436,7 +488,7 @@ function AdminPage() {
                       />
                     </div>
                     <Button 
-                      onClick={fetchUsers} 
+                      onClick={() => fetchUsers(currentPage)} 
                       disabled={loading}
                       className="min-h-[48px] px-6 flex-shrink-0"
                     >
@@ -476,9 +528,15 @@ function AdminPage() {
                         <div className="p-4 sm:p-6 border-b border-gray-100">
                           <div className="flex items-start sm:items-center justify-between gap-3">
                             <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                              </div>
+                              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
+                                {user.extendedData?.profilePicture ? (
+                                  <AvatarImage src={user.extendedData.profilePicture} alt={user.name} />
+                                ) : (
+                                  <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm sm:text-base font-semibold">
+                                    {user.name.split(' ').map(n => n[0]).join('')}
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
                               <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate">{user.name}</h3>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600 mt-1">
@@ -699,14 +757,15 @@ function AdminPage() {
                                   <Card className="bg-white">
                                     <CardContent className="p-3 sm:p-4">
                                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                          <Button
-                                          onClick={() => router.push(`/admin/users/${user.$id}`)}
+                                        <Button
+                                          onClick={() => handleCreateNewSession(user)}
                                           variant="outline"
-                            size="sm"
+                                          size="sm"
                                           className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
+                                          disabled={user.children.length === 0 || !user.children.some(child => child.status === 'active')}
                                         >
-                                          <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                                          <span>{GREEK_TEXT.fullDetails}</span>
+                                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          <span>Νέα Συνεδρία</span>
                                         </Button>
                                         <Button
                                           onClick={() => router.push(`/admin/create-student?parentId=${user.$id}`)}
@@ -749,13 +808,75 @@ function AdminPage() {
               )}
             </div>
 
+        {/* Pagination Controls */}
+        {!loading && totalPages > 1 && (
+          <Card className="mt-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Σελίδα {currentPage} από {totalPages} • Σύνολο {totalUsers} χρήστες
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Προηγούμενη
+                  </Button>
+                  
+                  {/* Page numbers */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Επόμενη
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Summary Statistics - Mobile Friendly */}
         {!loading && filteredUsers.length > 0 && (
           <Card className="mt-6 sm:mt-8">
             <CardContent className="p-4 sm:p-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
                 <div>
-                  <p className="text-xl sm:text-2xl font-bold text-blue-600">{users.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600">{totalUsers}</p>
                   <p className="text-xs sm:text-sm text-gray-600">{GREEK_TEXT.totalUsers}</p>
         </div>
                 <div>

@@ -70,15 +70,11 @@ interface SessionData {
   duration: string;
   status: 'completed' | 'locked' | 'canceled';
   isPaid: boolean;
+  isGESY: boolean;
+  gesyNote?: string; // Store ΓεΣΥ note in the achievement field
   therapistNotes: string;
   sessionSummary: string;
   therapistNodes: TherapistNode[]; // NEW: Private therapist nodes (stored in therapistNotes field)
-  achievement?: {
-    type: 'milestone' | 'skill' | 'breakthrough';
-    title: string;
-    description: string;
-    icon: 'star' | 'zap' | 'trophy' | 'award';
-  };
   materials: {
     pdfs: SessionFileData[];
     videos: SessionFileData[];
@@ -104,15 +100,11 @@ const mockSessionData: SessionData = {
   duration: "45 λεπτά",
   status: "completed",
   isPaid: true,
+  isGESY: false,
+  gesyNote: "",
   therapistNotes: "Emma showed great enthusiasm during our first session. We completed a comprehensive assessment of her current speech patterns and identified areas for improvement.",
   sessionSummary: "During this initial session, we focused on building rapport and conducting a thorough speech assessment. Emma demonstrated strong listening skills and was eager to participate in all activities.",
   therapistNodes: [], // NEW: Initialize empty therapist nodes
-  achievement: {
-    type: "milestone",
-    title: "Πρώτα Βήματα",
-    description: "Ξεκίνησε το ταξίδι της λογοθεραπείας!",
-    icon: "star"
-  },
   materials: {
     pdfs: [
       { id: "1", name: "Session_1_Assessment_Report.pdf", size: "2.4 MB", uploadDate: "2024-01-01", type: "pdf" },
@@ -168,6 +160,8 @@ function SessionEditPageContent() {
     duration: "45 λεπτά",
     status: "locked" as const,
     isPaid: false,
+    isGESY: false,
+    gesyNote: "",
     therapistNotes: "",
     sessionSummary: "",
     therapistNodes: [], // NEW: Initialize empty therapist nodes
@@ -384,17 +378,25 @@ function SessionEditPageContent() {
         console.error('Error loading session files:', error);
       }
 
-      // Parse JSON fields
-      let achievement = null;
+      // Parse JSON fields - use achievement field for ΓεΣΥ note
+      let gesyNote = '';
       let feedback = [];
       let therapistNodes: TherapistNode[] = [];
       
+      // Extract ΓεΣΥ note from achievement field (repurposing for ΓεΣΥ note storage)
       try {
         if (session.achievement) {
-          achievement = JSON.parse(session.achievement);
+          // If it's a JSON object (old achievement), ignore it
+          // If it's a simple string, use it as ΓεΣΥ note
+          const parsed = JSON.parse(session.achievement);
+          if (typeof parsed === 'string') {
+            gesyNote = parsed;
+          }
+          // Otherwise, ignore old achievement data
         }
       } catch (error) {
-        console.error('Error parsing achievement:', error);
+        // If parsing fails, treat as plain string (ΓεΣΥ note)
+        gesyNote = session.achievement || '';
       }
       
       try {
@@ -451,10 +453,11 @@ function SessionEditPageContent() {
         duration: session.duration + ' λεπτά',
         status: uiStatus, // Use mapped status
         isPaid: session.isPaid || false,
+        isGESY: session.isGESY || false,
+        gesyNote, // Use extracted ΓεΣΥ note
         therapistNotes: '', // Legacy field now used for structured storage
         sessionSummary: session.sessionSummary || '',
         therapistNodes, // NEW: Include therapist nodes
-        achievement,
         materials, // Use loaded materials
         feedback
       };
@@ -614,19 +617,20 @@ function SessionEditPageContent() {
         status: dbStatus, // Use mapped status
         therapistNotes: JSON.stringify(sessionData.therapistNodes || []), // NEW: Store structured notes in therapistNotes field
         sessionSummary: sessionData.sessionSummary || '',
-        achievement: sessionData.achievement ? JSON.stringify(sessionData.achievement) : null,
+        achievement: sessionData.gesyNote || null, // Store ΓεΣΥ note in achievement field
         feedback: JSON.stringify(sessionData.feedback || []),
-        isPaid: sessionData.isPaid // Use the explicit isPaid value from the form
+        isPaid: sessionData.isPaid, // Use the explicit isPaid value from the form
+        isGESY: sessionData.isGESY // Add ΓεΣΥ status
       };
 
       // Debug logging
       console.log('Saving session data:', {
         sessionSummary: updateData.sessionSummary,
-        achievement: updateData.achievement,
+        gesyNote: updateData.achievement, // ΓεΣΥ note stored in achievement field
         feedback: updateData.feedback,
         originalSessionData: {
           sessionSummary: sessionData.sessionSummary,
-          achievement: sessionData.achievement,
+          gesyNote: sessionData.gesyNote,
           feedback: sessionData.feedback
         }
       });
@@ -836,6 +840,41 @@ function SessionEditPageContent() {
                     </Badge>
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ΓεΣΥ</label>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sessionData.isGESY}
+                          onChange={(e) => setSessionData({...sessionData, isGESY: e.target.checked})}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span className={`ml-2 text-sm font-medium ${sessionData.isGESY ? 'text-green-700' : 'text-gray-700'}`}>
+                          {sessionData.isGESY ? 'ΓεΣΥ ✓' : 'Χωρίς ΓεΣΥ'}
+                        </span>
+                      </label>
+                      <Badge className={`${sessionData.isGESY ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                        {sessionData.isGESY ? 'ΓεΣΥ' : 'ΧΩΡΙΣ ΓεΣΥ'}
+                      </Badge>
+                    </div>
+                    
+                    {sessionData.isGESY && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Σημείωση ΓεΣΥ</label>
+                        <Input
+                          type="text"
+                          placeholder="Προαιρετική σημείωση για το ΓεΣΥ..."
+                          value={sessionData.gesyNote || ''}
+                          onChange={(e) => setSessionData({...sessionData, gesyNote: e.target.value})}
+                          className="text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -862,110 +901,6 @@ function SessionEditPageContent() {
           </CardContent>
         </Card>
 
-        {/* Achievement/Trophy Section */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Trophy className="w-5 h-5 text-yellow-500 mr-2" />
-                Επίτευγμα / Βραβείο
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Τύπος Επιτεύγματος</label>
-                  <select 
-                    value={sessionData.achievement?.type || ''}
-                    onChange={(e) => {
-                      const type = e.target.value as 'milestone' | 'skill' | 'breakthrough' | '';
-                      if (type) {
-                        setSessionData({
-                          ...sessionData, 
-                          achievement: {
-                            type,
-                            title: sessionData.achievement?.title || '',
-                            description: sessionData.achievement?.description || '',
-                            icon: sessionData.achievement?.icon || 'star'
-                          }
-                        });
-                      } else {
-                        setSessionData({...sessionData, achievement: undefined});
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Χωρίς επίτευγμα</option>
-                    <option value="milestone">Ορόσημο (Milestone)</option>
-                    <option value="skill">Δεξιότητα (Skill)</option>
-                    <option value="breakthrough">Ανακάλυψη (Breakthrough)</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Εικονίδιο</label>
-                  <select 
-                    value={sessionData.achievement?.icon || 'star'}
-                    onChange={(e) => {
-                      if (sessionData.achievement) {
-                        setSessionData({
-                          ...sessionData, 
-                          achievement: {
-                            ...sessionData.achievement,
-                            icon: e.target.value as 'star' | 'zap' | 'trophy' | 'award'
-                          }
-                        });
-                      }
-                    }}
-                    disabled={!sessionData.achievement}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                  >
-                    <option value="star">⭐ Αστέρι</option>
-                    <option value="zap">⚡ Κεραυνός</option>
-                    <option value="trophy">🏆 Τρόπαιο</option>
-                    <option value="award">🥇 Μετάλλιο</option>
-                  </select>
-                </div>
-              </div>
-              
-              {sessionData.achievement && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Τίτλος Επιτεύγματος</label>
-                    <Input
-                      value={sessionData.achievement.title}
-                      onChange={(e) => setSessionData({
-                        ...sessionData, 
-                        achievement: {
-                          ...sessionData.achievement!,
-                          title: e.target.value
-                        }
-                      })}
-                      placeholder="π.χ. Πρώτα Βήματα"
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Περιγραφή Επιτεύγματος</label>
-                    <Textarea
-                      value={sessionData.achievement.description}
-                      onChange={(e) => setSessionData({
-                        ...sessionData, 
-                        achievement: {
-                          ...sessionData.achievement!,
-                          description: e.target.value
-                        }
-                      })}
-                      placeholder="Περιγράψτε το επίτευγμα..."
-                      className="min-h-[80px]"
-                      rows={3}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* NEW: Therapist Nodes Section - ADMIN ONLY */}
         <Card>

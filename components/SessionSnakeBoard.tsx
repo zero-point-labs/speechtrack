@@ -28,6 +28,8 @@ interface Session {
   duration: string;
   status: 'completed' | 'locked' | 'available' | 'canceled';
   isPaid?: boolean;
+  isGESY?: boolean;
+  gesyNote?: string;
   achievement?: {
     type: string;
     icon: string;
@@ -500,15 +502,12 @@ export default function SessionSnakeBoard({
                           
                           {/* Main session card */}
                           <motion.div
-                            className={`relative w-full h-14 sm:h-16 lg:h-20 rounded-lg border-2 cursor-pointer transition-all duration-300 bg-gradient-to-br ${getStatusColor(session)} shadow-lg ${
-                              session.status === 'locked' ? 'opacity-70 cursor-not-allowed' : 'hover:scale-105'
+                            className={`relative w-full h-14 sm:h-16 lg:h-20 rounded-lg border-2 transition-all duration-300 bg-gradient-to-br ${getStatusColor(session)} shadow-lg ${
+                              session.status === 'locked' ? 'opacity-70' : ''
                             }`}
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.05 * sessionIndex, duration: 0.5 }}
-                            whileHover={session.status !== 'locked' ? { scale: 1.05 } : {}}
-                            whileTap={session.status !== 'locked' ? { scale: 0.95 } : {}}
-                            onClick={() => session.status !== 'locked' && onSessionClick?.(session)}
                           >
                             {/* Card Content */}
                             <div className="w-full h-full flex flex-col items-center justify-center p-1 sm:p-2">
@@ -676,15 +675,12 @@ export default function SessionSnakeBoard({
                           
                           {/* Main session card */}
                           <motion.div
-                            className={`relative w-full h-16 lg:h-20 rounded-lg border-2 cursor-pointer transition-all duration-300 bg-gradient-to-br ${getStatusColor(session)} shadow-lg ${
-                              session.status === 'locked' ? 'opacity-70 cursor-not-allowed' : 'hover:scale-105'
+                            className={`relative w-full h-16 lg:h-20 rounded-lg border-2 transition-all duration-300 bg-gradient-to-br ${getStatusColor(session)} shadow-lg ${
+                              session.status === 'locked' ? 'opacity-70' : ''
                             }`}
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.05 * sessionIndex, duration: 0.5 }}
-                            whileHover={session.status !== 'locked' ? { scale: 1.05 } : {}}
-                            whileTap={session.status !== 'locked' ? { scale: 0.95 } : {}}
-                            onClick={() => session.status !== 'locked' && onSessionClick?.(session)}
                           >
                             {/* Card Content */}
                             <div className="w-full h-full flex flex-col items-center justify-center p-2">

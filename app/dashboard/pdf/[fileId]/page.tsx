@@ -144,10 +144,10 @@ function PDFViewerContent() {
   };
 
   const getEnhancedPDFUrl = (pdfUrl: string, isMobile: boolean) => {
-    // Enhanced PDF viewing parameters for better mobile/desktop experience
+    // Use direct PDF URLs for both mobile and desktop to avoid Chrome blocking issues
     if (isMobile) {
-      // Mobile: Fit to width, minimal UI for more reading space
-      return `${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1&page=1&zoom=FitV&view=FitV`;
+      // Mobile: Optimized parameters for mobile viewing
+      return `${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1&zoom=FitW&view=FitW`;
     } else {
       // Desktop: Full features with fit to height
       return `${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1&zoom=FitH&view=FitH`;
@@ -252,6 +252,15 @@ function PDFViewerContent() {
           // Mobile: Google Docs Viewer + Native app option
           <div className="h-full flex flex-col">
             {/* Mobile guidance banner */}
+            <div className="bg-blue-50 border-b border-blue-200 p-3">
+              <div className="flex items-start gap-3">
+                <Smartphone className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <p className="text-blue-900 font-medium mb-1">Προβολή PDF στο κινητό</p>
+                  <p className="text-blue-700">Για καλύτερη εμπειρία ανάγνωσης, χρησιμοποιήστε το κουμπί "Άνοιγμα στην εφαρμογή" για να ανοίξετε το PDF στην εφαρμογή PDF του κινητού σας.</p>
+                </div>
+              </div>
+            </div>
 
             {/* Enhanced Mobile PDF Iframe */}
             <div className="flex-1 bg-gray-100 relative">
@@ -260,21 +269,20 @@ function PDFViewerContent() {
                 className="w-full h-full border-0 mobile-pdf-iframe"
                 title={fileData.name}
                 loading="lazy"
-                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                allow="fullscreen"
+                referrerPolicy="no-referrer-when-downgrade"
                 style={{ 
                   minHeight: '500px',
-                  // Mobile iframe optimizations
                   width: '100%',
                   height: '100%'
                 }}
                 onLoad={() => {
-                  console.log('📱 Enhanced mobile PDF loaded successfully');
+                  console.log('📱 Mobile PDF viewer loaded successfully');
                 }}
                 onError={() => {
-                  console.log('⚠️ PDF iframe error - showing fallback options');
+                  console.log('⚠️ PDF iframe error - falling back to native app');
                 }}
               />
-              
             </div>
 
             {/* Enhanced Mobile action bar */}
@@ -315,6 +323,13 @@ function PDFViewerContent() {
           // Desktop: Enhanced iframe with full controls
           <div className="h-full p-4 bg-gray-100">
             <div className="h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden">
+              {/* Desktop PDF viewer info */}
+              <div className="bg-gray-50 border-b px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Monitor className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-600">Προβολή PDF στην επιφάνεια εργασίας</span>
+                </div>
+              </div>
 
               {/* Enhanced Desktop PDF Viewer */}
               <div className="flex-1">
@@ -323,10 +338,14 @@ function PDFViewerContent() {
                   className="w-full h-full border-0"
                   title={fileData.name}
                   loading="lazy"
+                  allow="fullscreen"
+                  referrerPolicy="no-referrer-when-downgrade"
                   style={{ minHeight: '600px' }}
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
                   onLoad={() => {
-                    console.log('🖥️ Enhanced desktop PDF loaded');
+                    console.log('🖥️ Desktop PDF loaded with native browser viewer');
+                  }}
+                  onError={() => {
+                    console.log('⚠️ Desktop PDF loading failed');
                   }}
                 />
               </div>
