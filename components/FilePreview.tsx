@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import ReactPlayer from 'react-player';
+import MobileVideoPlayer from './MobileVideoPlayer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -106,114 +107,14 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose, onDown
       );
     }
 
-    // Video Preview
+    // Video Preview - Enhanced Mobile Player
     if (isVideo) {
       return (
-        <div className="w-full max-w-5xl">
-          {/* Video Player - Enhanced Mobile Support */}
-          <div 
-            className="border border-gray-300 rounded-lg overflow-hidden bg-black shadow-lg"
-            style={{ 
-              height: isMobile ? '60vh' : '70vh', 
-              minHeight: isMobile ? '300px' : '400px' 
-            }}
-          >
-            {/* Mobile-specific guidance */}
-            {isMobile && (
-              <div className="bg-blue-900/90 text-white p-2 text-xs text-center">
-                📱 Πατήστε το κουμπί play για αναπαραγωγή • Χρησιμοποιήστε τα στοιχεία ελέγχου του βίντεο
-              </div>
-            )}
-            
-            <video
-              src={file.url}
-              controls
-              className="w-full h-full object-contain"
-              style={{
-                backgroundColor: '#000',
-                borderRadius: isMobile ? '0 0 8px 8px' : '8px'
-              }}
-              onError={(e) => {
-                console.error('Video loading error:', e);
-              }}
-              onLoadStart={() => {
-                console.log('Video loading started');
-              }}
-              onCanPlay={() => {
-                console.log('Video ready to play');
-              }}
-              onLoadedMetadata={() => {
-                console.log('Video metadata loaded - ready for mobile playback');
-              }}
-              // Mobile-optimized attributes
-              preload="metadata"
-              playsInline
-              controlsList="nodownload"
-              disablePictureInPicture={false}
-              // Additional mobile-specific props
-              {...(isMobile && {
-                'webkit-playsinline': 'true',
-                'x5-video-player-type': 'h5',
-                'x5-video-player-fullscreen': 'true'
-              })}
-            >
-              <p className="text-white p-4 text-center">
-                Ο browser σας δεν υποστηρίζει αναπαραγωγή βίντεο.
-                <br />
-                <a 
-                  href={file.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="underline text-blue-300 hover:text-blue-200"
-                >
-                  Κατεβάστε το βίντεο
-                </a>
-              </p>
-            </video>
-            
-            {/* Mobile video controls and fallback */}
-            {isMobile && (
-              <div className="bg-gray-900/90 p-3 space-y-2">
-                <div className="flex justify-center gap-3">
-                  <button
-                    onClick={() => {
-                      const video = document.querySelector('video') as any;
-                      if (video) {
-                        if (video.requestFullscreen) {
-                          video.requestFullscreen();
-                        } else if (video.webkitRequestFullscreen) {
-                          video.webkitRequestFullscreen();
-                        } else if (video.webkitEnterFullscreen) {
-                          video.webkitEnterFullscreen();
-                        }
-                      }
-                    }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
-                  >
-                    📱 Πλήρης Οθόνη
-                  </button>
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs no-underline"
-                  >
-                    🔗 Άνοιγμα Εξωτερικά
-                  </a>
-                </div>
-                <div className="text-center">
-                  <a
-                    href={file.url}
-                    download
-                    className="text-blue-300 hover:text-blue-200 text-xs underline"
-                  >
-                    💾 Κατέβασμα Βίντεο
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <MobileVideoPlayer 
+          url={file.url} 
+          fileName={file.name} 
+          isMobile={isMobile} 
+        />
       );
     }
 
