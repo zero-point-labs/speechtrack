@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AdminRoute } from "@/lib/auth-middleware";
 import { databases, storage, appwriteConfig, Query } from "@/lib/appwrite.client";
@@ -193,6 +193,150 @@ function SessionEditPageContent() {
     priority: 'medium'
   });
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+
+  // File input refs for mobile compatibility
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // File upload handlers
+  const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) {
+      try {
+        for (const file of files) {
+          if (file.type === 'application/pdf') {
+            // Show file size info for user awareness
+            const fileSize = fileService.formatFileSize(file.size);
+            const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+            const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+            
+            if (isLargeFile) {
+              console.log(`📤 Large file detected (${fileSize}): ${file.name} - Using direct upload method`);
+            } else {
+              console.log(`📤 Small file (${fileSize}): ${file.name} - Using traditional upload`);
+            }
+
+            const uploadedFile = await uploadWithProgress(file, 'pdf') as any;
+            setSessionData(prev => ({
+              ...prev,
+              materials: {
+                ...prev.materials,
+                pdfs: [...prev.materials.pdfs, {
+                  id: uploadedFile.id,
+                  name: uploadedFile.name,
+                  size: fileService.formatFileSize(uploadedFile.size),
+                  uploadDate: new Date().toLocaleDateString('el-GR'),
+                  type: 'pdf'
+                }]
+              }
+            }));
+          } else {
+            alert('Παρακαλώ επιλέξτε μόνο αρχεία PDF');
+          }
+        }
+      } catch (error) {
+        console.error('Error uploading PDF:', error);
+        alert(`Σφάλμα κατά τη μεταφόρτωση του PDF: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
+      }
+      // Reset input
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) {
+      try {
+        for (const file of files) {
+          if (file.type.startsWith('video/')) {
+            // Show file size info for user awareness
+            const fileSize = fileService.formatFileSize(file.size);
+            const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+            const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+            
+            if (isLargeFile) {
+              console.log(`📤 Large video detected (${fileSize}): ${file.name} - Using direct upload method`);
+            } else {
+              console.log(`📤 Small video (${fileSize}): ${file.name} - Using traditional upload`);
+            }
+
+            const uploadedFile = await uploadWithProgress(file, 'video') as any;
+            setSessionData(prev => ({
+              ...prev,
+              materials: {
+                ...prev.materials,
+                videos: [...prev.materials.videos, {
+                  id: uploadedFile.id,
+                  name: uploadedFile.name,
+                  size: fileService.formatFileSize(uploadedFile.size),
+                  uploadDate: new Date().toLocaleDateString('el-GR'),
+                  type: 'video'
+                }]
+              }
+            }));
+          } else {
+            alert('Παρακαλώ επιλέξτε μόνο αρχεία βίντεο');
+          }
+        }
+      } catch (error) {
+        console.error('Error uploading videos:', error);
+        alert(`Σφάλμα κατά τη μεταφόρτωση των βίντεο: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
+      }
+      // Reset input
+      if (videoInputRef.current) {
+        videoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) {
+      try {
+        for (const file of files) {
+          if (file.type.startsWith('image/')) {
+            // Show file size info for user awareness
+            const fileSize = fileService.formatFileSize(file.size);
+            const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
+            const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
+            
+            if (isLargeFile) {
+              console.log(`📤 Large image detected (${fileSize}): ${file.name} - Using direct upload method`);
+            } else {
+              console.log(`📤 Small image (${fileSize}): ${file.name} - Using traditional upload`);
+            }
+
+            const uploadedFile = await uploadWithProgress(file, 'image') as any;
+            setSessionData(prev => ({
+              ...prev,
+              materials: {
+                ...prev.materials,
+                images: [...prev.materials.images, {
+                  id: uploadedFile.id,
+                  name: uploadedFile.name,
+                  size: fileService.formatFileSize(uploadedFile.size),
+                  uploadDate: new Date().toLocaleDateString('el-GR'),
+                  type: 'image'
+                }]
+              }
+            }));
+          } else {
+            alert('Παρακαλώ επιλέξτε μόνο αρχεία εικόνων');
+          }
+        }
+      } catch (error) {
+        console.error('Error uploading images:', error);
+        alert(`Σφάλμα κατά τη μεταφόρτωση των εικόνων: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
+      }
+      // Reset input
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
 
   // Upload helper function with progress
   const uploadWithProgress = async (file: File, fileType: 'pdf' | 'video' | 'image') => {
@@ -678,7 +822,7 @@ function SessionEditPageContent() {
           try {
             console.log('📊 Updating folder statistics for:', sessionData.folderId);
             const updatedFolder = await sessionFolderService.updateFolderStats(sessionData.folderId);
-            console.log('📊 Folder stats updated successfully:', updatedFolder.totalSessions, 'total sessions');
+            console.log('📊 Folder stats updated successfully:', updatedFolder);
           } catch (error) {
             console.error('⚠️ Failed to update folder stats:', error);
             console.error('Full error:', error);
@@ -720,6 +864,31 @@ function SessionEditPageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Hidden file inputs for mobile compatibility */}
+      <input
+        ref={pdfInputRef}
+        type="file"
+        multiple
+        accept=".pdf,application/pdf"
+        onChange={handlePDFUpload}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={videoInputRef}
+        type="file"
+        multiple
+        accept=".mp4,.mov,.avi,.mkv,.wmv,.flv,video/mp4,video/quicktime,video/x-msvideo"
+        onChange={handleVideoUpload}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={imageInputRef}
+        type="file"
+        multiple
+        accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+        onChange={handleImageUpload}
+        style={{ display: 'none' }}
+      />
       {/* Mobile Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="flex items-center justify-between p-4">
@@ -1130,56 +1299,7 @@ function SessionEditPageContent() {
                   </h3>
                   <Button
                     disabled={uploadProgress?.isUploading}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.multiple = true;
-                      input.accept = '.pdf,application/pdf';
-                      input.onchange = async (e) => {
-                        const files = Array.from((e.target as HTMLInputElement).files || []);
-                        if (files.length) {
-                          try {
-                            for (const file of files) {
-                              if (file.type === 'application/pdf') {
-                                // Show file size info for user awareness
-                                const fileSize = fileService.formatFileSize(file.size);
-                                const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
-                                const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
-                                
-                                if (isLargeFile) {
-                                  console.log(`📤 Large file detected (${fileSize}): ${file.name} - Using direct upload method`);
-                                } else {
-                                  console.log(`📤 Small file (${fileSize}): ${file.name} - Using traditional upload`);
-                                }
-
-                                const uploadedFile = await uploadWithProgress(file, 'pdf') as any;
-                                setSessionData(prev => ({
-                                  ...prev,
-                                  materials: {
-                                    ...prev.materials,
-                                    pdfs: [...prev.materials.pdfs, {
-                                      id: uploadedFile.id,
-                                      name: uploadedFile.name,
-                                      size: fileService.formatFileSize(uploadedFile.size),
-                                      uploadDate: new Date().toLocaleDateString('el-GR'),
-                                      type: 'pdf'
-                                    }]
-                                  }
-                                }));
-                                
-                                // File added to state - UI updates automatically
-                              } else {
-                                alert('Παρακαλώ επιλέξτε μόνο αρχεία PDF');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error uploading PDF:', error);
-                            alert(`Σφάλμα κατά τη μεταφόρτωση του PDF: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
-                          }
-                        }
-                      };
-                      input.click();
-                    }}
+                    onClick={() => pdfInputRef.current?.click()}
                     size="sm"
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
@@ -1257,56 +1377,7 @@ function SessionEditPageContent() {
                   </h3>
                   <Button
                     disabled={uploadProgress?.isUploading}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.multiple = true;
-                      input.accept = '.mp4,.mov,.avi,.mkv,.wmv,.flv,video/mp4,video/quicktime,video/x-msvideo';
-                      input.onchange = async (e) => {
-                        const files = Array.from((e.target as HTMLInputElement).files || []);
-                        if (files.length) {
-                          try {
-                            for (const file of files) {
-                              if (file.type.startsWith('video/')) {
-                                // Show file size info for user awareness
-                                const fileSize = fileService.formatFileSize(file.size);
-                                const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
-                                const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
-                                
-                                if (isLargeFile) {
-                                  console.log(`📤 Large video detected (${fileSize}): ${file.name} - Using direct upload method`);
-                                } else {
-                                  console.log(`📤 Small video (${fileSize}): ${file.name} - Using traditional upload`);
-                                }
-
-                                const uploadedFile = await uploadWithProgress(file, 'video') as any;
-                                setSessionData(prev => ({
-                                  ...prev,
-                                  materials: {
-                                    ...prev.materials,
-                                    videos: [...prev.materials.videos, {
-                                      id: uploadedFile.id,
-                                      name: uploadedFile.name,
-                                      size: fileService.formatFileSize(uploadedFile.size),
-                                      uploadDate: new Date().toLocaleDateString('el-GR'),
-                                      type: 'video'
-                                    }]
-                                  }
-                                }));
-                                
-                                // File added to state - UI updates automatically
-                              } else {
-                                alert('Παρακαλώ επιλέξτε μόνο αρχεία βίντεο');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error uploading videos:', error);
-                            alert(`Σφάλμα κατά τη μεταφόρτωση των βίντεο: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
-                          }
-                        }
-                      };
-                      input.click();
-                    }}
+                    onClick={() => videoInputRef.current?.click()}
                     size="sm"
                     className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
@@ -1384,56 +1455,7 @@ function SessionEditPageContent() {
                   </h3>
                   <Button
                     disabled={uploadProgress?.isUploading}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.multiple = true;
-                      input.accept = '.jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp';
-                      input.onchange = async (e) => {
-                        const files = Array.from((e.target as HTMLInputElement).files || []);
-                        if (files.length) {
-                          try {
-                            for (const file of files) {
-                              if (file.type.startsWith('image/')) {
-                                // Show file size info for user awareness
-                                const fileSize = fileService.formatFileSize(file.size);
-                                const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
-                                const isLargeFile = file.size > UPLOAD_SIZE_LIMIT;
-                                
-                                if (isLargeFile) {
-                                  console.log(`📤 Large image detected (${fileSize}): ${file.name} - Using direct upload method`);
-                                } else {
-                                  console.log(`📤 Small image (${fileSize}): ${file.name} - Using traditional upload`);
-                                }
-
-                                const uploadedFile = await uploadWithProgress(file, 'image') as any;
-                                setSessionData(prev => ({
-                                  ...prev,
-                                  materials: {
-                                    ...prev.materials,
-                                    images: [...prev.materials.images, {
-                                      id: uploadedFile.id,
-                                      name: uploadedFile.name,
-                                      size: fileService.formatFileSize(uploadedFile.size),
-                                      uploadDate: new Date().toLocaleDateString('el-GR'),
-                                      type: 'image'
-                                    }]
-                                  }
-                                }));
-                                
-                                // File added to state - UI updates automatically
-                              } else {
-                                alert('Παρακαλώ επιλέξτε μόνο αρχεία εικόνων');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error uploading images:', error);
-                            alert(`Σφάλμα κατά τη μεταφόρτωση των εικόνων: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
-                          }
-                        }
-                      };
-                      input.click();
-                    }}
+                    onClick={() => imageInputRef.current?.click()}
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
