@@ -152,6 +152,11 @@ export default function StudentFoldersPage() {
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [settingActive, setSettingActive] = useState<string | null>(null);
+  const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
+  const [editingFolder, setEditingFolder] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState("");
+  const [editFolderDescription, setEditFolderDescription] = useState("");
+  const [updatingFolder, setUpdatingFolder] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -434,6 +439,88 @@ export default function StudentFoldersPage() {
       setError(`Σφάλμα κατά την ενεργοποίηση φακέλου`);
     } finally {
       setSettingActive(null);
+    }
+  };
+
+  // Delete folder
+  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+    if (!confirm(GREEK_TEXT.confirmDeleteFolder)) {
+      return;
+    }
+
+    setDeletingFolder(folderId);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/session-folders/${folderId}?cascade=true`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Ο φάκελος "${folderName}" διαγράφηκε επιτυχώς!`);
+        await loadFolders(); // Reload to get updated folder list
+      } else {
+        setError(data.error || `Αποτυχία διαγραφής φακέλου`);
+      }
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+      setError(`Σφάλμα κατά τη διαγραφή φακέλου`);
+    } finally {
+      setDeletingFolder(null);
+    }
+  };
+
+  // Start editing folder
+  const handleStartEditFolder = (folder: SessionFolder) => {
+    setEditingFolder(folder.$id);
+    setEditFolderName(folder.name);
+    setEditFolderDescription(folder.description || "");
+  };
+
+  // Cancel editing folder
+  const handleCancelEditFolder = () => {
+    setEditingFolder(null);
+    setEditFolderName("");
+    setEditFolderDescription("");
+  };
+
+  // Update folder
+  const handleUpdateFolder = async () => {
+    if (!editFolderName.trim() || !editingFolder) {
+      setError(GREEK_TEXT.folderNameRequired);
+      return;
+    }
+
+    setUpdatingFolder(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/session-folders/${editingFolder}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editFolderName.trim(),
+          description: editFolderDescription.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Ο φάκελος "${editFolderName}" ενημερώθηκε επιτυχώς!`);
+        await loadFolders(); // Reload to get updated folder list
+        handleCancelEditFolder();
+      } else {
+        setError(data.error || `Αποτυχία ενημέρωσης φακέλου`);
+      }
+    } catch (error) {
+      console.error("Error updating folder:", error);
+      setError(`Σφάλμα κατά την ενημέρωση φακέλου`);
+    } finally {
+      setUpdatingFolder(false);
     }
   };
 
@@ -829,89 +916,165 @@ export default function StudentFoldersPage() {
               <Card key={folder.$id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    {/* Folder Info */}
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      {folder.isActive ? (
-                        <FolderOpen className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
-                      ) : (
-                        <Folder className="w-6 h-6 text-gray-600 flex-shrink-0 mt-1" />
-                      )}
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate flex items-center gap-2">
-                            {folder.name}
-                            {folder.isActive && (
-                              <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
-                                {GREEK_TEXT.currentlyActive}
-                              </Badge>
-                            )}
-                          </h3>
-                          {!folder.isActive && getStatusBadge(folder)}
+                    {/* Folder Info or Edit Form */}
+                    {editingFolder === folder.$id ? (
+                      /* Edit Form */
+                      <div className="flex-1 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {GREEK_TEXT.folderName} *
+                          </label>
+                          <Input
+                            value={editFolderName}
+                            onChange={(e) => setEditFolderName(e.target.value)}
+                            placeholder="π.χ. Χειμερινό Πρόγραμμα 2024"
+                            className="w-full"
+                          />
                         </div>
-                        
-                        {folder.description && (
-                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                            {folder.description}
-                          </p>
-                        )}
-                        
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            {folder.completedSessions}/{folder.totalSessions} {GREEK_TEXT.sessionsCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(folder.startDate).toLocaleDateString('el-GR')}
-                          </span>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {GREEK_TEXT.folderDescription}
+                          </label>
+                          <Input
+                            value={editFolderDescription}
+                            onChange={(e) => setEditFolderDescription(e.target.value)}
+                            placeholder="Προαιρετική περιγραφή φακέλου..."
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            onClick={handleUpdateFolder}
+                            disabled={updatingFolder || !editFolderName.trim()}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            {updatingFolder ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                            ) : null}
+                            Αποθήκευση
+                          </Button>
+                          <Button
+                            onClick={handleCancelEditFolder}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {GREEK_TEXT.cancel}
+                          </Button>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* Normal Folder Info */
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {folder.isActive ? (
+                          <FolderOpen className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                        ) : (
+                          <Folder className="w-6 h-6 text-gray-600 flex-shrink-0 mt-1" />
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                            <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate flex items-center gap-2">
+                              {folder.name}
+                              {folder.isActive && (
+                                <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
+                                  {GREEK_TEXT.currentlyActive}
+                                </Badge>
+                              )}
+                            </h3>
+                            {!folder.isActive && getStatusBadge(folder)}
+                          </div>
+                          
+                          {folder.description && (
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                              {folder.description}
+                            </p>
+                          )}
+                          
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              {folder.completedSessions}/{folder.totalSessions} {GREEK_TEXT.sessionsCount}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(folder.startDate).toLocaleDateString('el-GR')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        onClick={() => router.push(`/admin/students/${studentId}/folders/${folder.$id}`)}
-                        size="sm"
-                        variant="outline"
-                        className="flex items-center gap-1 min-h-[40px] text-xs sm:text-sm"
-                      >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>{GREEK_TEXT.view}</span>
-                      </Button>
-                      
-                      {!folder.isActive && (
+                    {editingFolder !== folder.$id && (
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Button
-                          onClick={() => handleSetActive(folder.$id, folder.name)}
-                          disabled={settingActive === folder.$id}
+                          onClick={() => router.push(`/admin/students/${studentId}/folders/${folder.$id}`)}
                           size="sm"
                           variant="outline"
-                          className="flex items-center gap-1 min-h-[40px] text-xs sm:text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                          className="flex items-center gap-1 min-h-[40px] text-xs sm:text-sm"
                         >
-                          {settingActive === folder.$id ? (
-                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-blue-600"></div>
-                          ) : (
-                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                          )}
-                          <span>{GREEK_TEXT.setActive}</span>
+                          <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span>{GREEK_TEXT.view}</span>
                         </Button>
-                      )}
-                      
-                      <Button
-                        onClick={() => {
-                          // Generate a timestamp-based session ID (like the existing sessions)
-                          const newSessionId = Date.now().toString();
-                          // Navigate directly to edit page for new session
-                          router.push(`/admin/edit/${newSessionId}?studentId=${studentId}&folderId=${folder.$id}`);
-                        }}
-                        size="sm"
-                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700 min-h-[40px] text-xs sm:text-sm"
-                      >
-                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>{GREEK_TEXT.addSession}</span>
-                      </Button>
-                    </div>
+                        
+                        <Button
+                          onClick={() => handleStartEditFolder(folder)}
+                          size="sm"
+                          variant="outline"
+                          className="flex items-center gap-1 min-h-[40px] text-xs sm:text-sm text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
+                        >
+                          <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span>{GREEK_TEXT.edit}</span>
+                        </Button>
+                        
+                        {!folder.isActive && (
+                          <Button
+                            onClick={() => handleSetActive(folder.$id, folder.name)}
+                            disabled={settingActive === folder.$id}
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-1 min-h-[40px] text-xs sm:text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                          >
+                            {settingActive === folder.$id ? (
+                              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-blue-600"></div>
+                            ) : (
+                              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                            )}
+                            <span>{GREEK_TEXT.setActive}</span>
+                          </Button>
+                        )}
+                        
+                        <Button
+                          onClick={() => {
+                            // Generate a timestamp-based session ID (like the existing sessions)
+                            const newSessionId = Date.now().toString();
+                            // Navigate directly to edit page for new session
+                            router.push(`/admin/edit/${newSessionId}?studentId=${studentId}&folderId=${folder.$id}`);
+                          }}
+                          size="sm"
+                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 min-h-[40px] text-xs sm:text-sm"
+                        >
+                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span>{GREEK_TEXT.addSession}</span>
+                        </Button>
+                        
+                        <Button
+                          onClick={() => handleDeleteFolder(folder.$id, folder.name)}
+                          disabled={deletingFolder === folder.$id}
+                          size="sm"
+                          variant="outline"
+                          className="flex items-center gap-1 min-h-[40px] text-xs sm:text-sm text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+                        >
+                          {deletingFolder === folder.$id ? (
+                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-red-600"></div>
+                          ) : (
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          )}
+                          <span>{GREEK_TEXT.delete}</span>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
