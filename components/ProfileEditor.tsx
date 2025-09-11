@@ -15,14 +15,15 @@ import {
   Mail,
   User,
   Upload,
-  Loader2
+  Loader2,
+  MapPin
 } from 'lucide-react';
 
 interface ProfileEditorProps {
   user: any;
   linkedStudent: any;
   parentContact: any;
-  onSave: (updatedData: { phone: string; profilePicture?: string }) => Promise<void>;
+  onSave: (updatedData: { phone: string; address?: string; profilePicture?: string }) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -34,6 +35,7 @@ export default function ProfileEditor({
   onCancel 
 }: ProfileEditorProps) {
   const [phone, setPhone] = useState(parentContact.phone === '-' ? '' : parentContact.phone);
+  const [address, setAddress] = useState(parentContact.address || '');
   const [profilePicture, setProfilePicture] = useState(parentContact.profilePicture || '');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -94,6 +96,7 @@ export default function ProfileEditor({
       setSaving(true);
       await onSave({
         phone: phone.trim(),
+        address: address.trim(),
         profilePicture: profilePicture
       });
     } catch (error) {
@@ -221,6 +224,21 @@ export default function ProfileEditor({
                   className="focus:border-blue-500 focus:ring-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">Το τηλέφωνο χρησιμοποιείται για επικοινωνία από τον θεραπευτή</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Διεύθυνση
+                </label>
+                <Input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="π.χ. Λεωφόρος Κηφισίας 123, Αθήνα"
+                  className="focus:border-blue-500 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Η διεύθυνση είναι προαιρετική και χρησιμοποιείται για διοικητικούς λόγους</p>
               </div>
             </div>
 

@@ -161,12 +161,12 @@ export default function StudentFoldersPage() {
   
   // Session setup state
   const [sessionSetup, setSessionSetup] = useState<SessionSetupData>({
-    totalWeeks: 12,
+    totalWeeks: 4,
     sessionsPerWeek: 1,
     sessionTemplates: [{
       dayOfWeek: 'monday',
       time: '10:00',
-      duration: 45
+      duration: 60
     }]
   });
 
@@ -228,8 +228,8 @@ export default function StudentFoldersPage() {
   }, [studentId, isAuthenticated, isAdmin]);
 
   // Session setup handlers
-  const handleWeeksChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const weeks = parseInt(e.target.value) || 12;
+  const handleWeeksChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const weeks = parseInt(e.target.value) || 4;
     setSessionSetup(prev => ({ 
       ...prev, 
       totalWeeks: weeks 
@@ -640,14 +640,17 @@ export default function StudentFoldersPage() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             {GREEK_TEXT.totalWeeks} *
                           </label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="52"
+                          <select
                             value={sessionSetup.totalWeeks}
                             onChange={handleWeeksChange}
-                            className="h-12"
-                          />
+                            className="w-full h-12 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                              <option key={num} value={num}>
+                                {num} {num === 1 ? 'εβδομάδα' : 'εβδομάδες'}
+                              </option>
+                            ))}
+                          </select>
                           <p className="text-xs text-gray-500 mt-1">
                             Σύνολο συνεδριών: {sessionSetup.totalWeeks * sessionSetup.sessionsPerWeek}
                           </p>

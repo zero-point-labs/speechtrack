@@ -774,7 +774,7 @@ function AdminPage() {
                                   </h4>
                                   <Card className="bg-white">
                                     <CardContent className="p-3 sm:p-4">
-                                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                         <Button
                                           onClick={() => handleCreateNewSession(user)}
                                           variant="outline"
@@ -786,17 +786,8 @@ function AdminPage() {
                                           <span>Νέα Συνεδρία</span>
                                         </Button>
                                         <Button
-                                          onClick={() => router.push(`/admin/create-student?parentId=${user.$id}`)}
-                            variant="outline"
-                                          size="sm"
-                                          className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
-                          >
-                                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-                                          <span>{GREEK_TEXT.addChild}</span>
-                          </Button>
-                          <Button
                                           variant="outline"
-                            size="sm"
+                                          size="sm"
                                           className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
                                           onClick={() => window.open(`tel:${user.phone}`, '_self')}
                                         >
@@ -804,14 +795,14 @@ function AdminPage() {
                                           <span>{GREEK_TEXT.call}</span>
                                         </Button>
                                         <Button
-                            variant="outline"
+                                          variant="outline"
                                           size="sm"
                                           className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm"
                                           onClick={() => window.open(`mailto:${user.email}`, '_self')}
-                          >
+                                        >
                                           <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
                                           <span>{GREEK_TEXT.emailAction}</span>
-                          </Button>
+                                        </Button>
                         </div>
                       </CardContent>
                     </Card>

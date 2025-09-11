@@ -463,7 +463,7 @@ function DashboardContent() {
   };
 
   // Handle profile update
-  const handleProfileUpdate = async (updatedData: { phone: string; profilePicture?: string }) => {
+  const handleProfileUpdate = async (updatedData: { phone: string; address?: string; profilePicture?: string }) => {
     try {
       if (!user?.id) throw new Error('User ID not found');
 
@@ -487,6 +487,7 @@ function DashboardContent() {
           extendedDoc.$id,
           {
             phone: updatedData.phone,
+            address: updatedData.address || '',
             profilePicture: updatedData.profilePicture || ''
           }
         );
@@ -501,6 +502,7 @@ function DashboardContent() {
             name: user.name,
             email: user.email,
             phone: updatedData.phone,
+            address: updatedData.address || '',
             profilePicture: updatedData.profilePicture || '',
             createdAt: new Date().toISOString()
           }
@@ -1815,17 +1817,17 @@ function DashboardContent() {
       <div className="space-y-6 pb-32 md:pb-8">
         {/* Account Settings */}
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Ρυθμίσεις Λογαριασμού</h3>
                 <p className="text-sm text-gray-600">Διαχείριση προφίλ και αποσύνδεση</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                 <Button
                   onClick={() => setEditingProfile(!editingProfile)}
                   variant="outline"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 w-full sm:w-auto"
                 >
                   <Edit3 className="w-4 h-4 mr-2" />
                   {editingProfile ? 'Ακύρωση' : 'Επεξεργασία'}
@@ -1833,7 +1835,7 @@ function DashboardContent() {
                 <Button
                   onClick={logout}
                   variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
                 >
                   Αποσύνδεση
                 </Button>

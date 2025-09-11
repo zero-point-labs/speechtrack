@@ -67,12 +67,12 @@ function CreateSessionContent() {
   const [createdSessions, setCreatedSessions] = useState<CreatedSessions | null>(null);
   
   const [sessionSetup, setSessionSetup] = useState<SessionSetupData>({
-    totalWeeks: 12,
+    totalWeeks: 4,
     sessionsPerWeek: 1,
     sessionTemplates: [{
       dayOfWeek: 'monday',
       time: '10:00',
-      duration: 45
+      duration: 60
     }]
   });
 
@@ -162,8 +162,8 @@ function CreateSessionContent() {
   };
 
   // Handle session setup changes
-  const handleWeeksChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const weeks = parseInt(e.target.value) || 12;
+  const handleWeeksChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const weeks = parseInt(e.target.value) || 4;
     setSessionSetup(prev => ({ 
       ...prev, 
       totalWeeks: weeks 
@@ -666,14 +666,17 @@ function CreateSessionContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Συνολικές Εβδομάδες *
                 </label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="52"
+                <select
                   value={sessionSetup.totalWeeks}
                   onChange={handleWeeksChange}
-                  className="w-full"
-                />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                    <option key={num} value={num}>
+                      {num} {num === 1 ? 'εβδομάδα' : 'εβδομάδες'}
+                    </option>
+                  ))}
+                </select>
                 <p className="text-xs text-gray-500 mt-1">
                   Συνολικό πρόγραμμα: {sessionSetup.totalWeeks * sessionSetup.sessionsPerWeek} συνεδρίες
                 </p>
