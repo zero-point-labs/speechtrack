@@ -15,9 +15,7 @@ interface ChildFormData {
   name: string;
   dateOfBirth: string;
   age: number;
-  goals: string;
-  medicalHistory: string;
-  additionalNotes: string;
+  idNumber: string;
 }
 
 export default function OnboardingPage() {
@@ -28,9 +26,7 @@ export default function OnboardingPage() {
     name: "",
     dateOfBirth: "",
     age: 0,
-    goals: "",
-    medicalHistory: "",
-    additionalNotes: ""
+    idNumber: ""
   });
   
   const { user, isAuthenticated, isAdmin, loading: authLoading } = useAuth();
@@ -84,13 +80,6 @@ export default function OnboardingPage() {
     return true;
   };
 
-  const validateStep2 = () => {
-    if (!childData.goals.trim()) {
-      setError("Παρακαλώ περιγράψτε τους στόχους θεραπείας");
-      return false;
-    }
-    return true;
-  };
 
   const handleNext = () => {
     setError("");
@@ -98,10 +87,6 @@ export default function OnboardingPage() {
     if (step === 1) {
       if (validateStep1()) {
         setStep(2);
-      }
-    } else if (step === 2) {
-      if (validateStep2()) {
-        setStep(3);
       }
     }
   };
@@ -129,7 +114,8 @@ export default function OnboardingPage() {
         status: 'active',
         totalSessions: 0,
         completedSessions: 0,
-        joinDate: new Date().toISOString()
+        joinDate: new Date().toISOString(),
+        ...(childData.idNumber && { idNumber: childData.idNumber })
       };
 
       const student = await databases.createDocument(
@@ -193,7 +179,7 @@ export default function OnboardingPage() {
         {/* Progress Steps */}
         <div className="flex justify-center mb-8">
           <div className="flex items-center space-x-4">
-            {[1, 2, 3].map((stepNumber) => (
+            {[1, 2].map((stepNumber) => (
               <div key={stepNumber} className="flex items-center">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -208,7 +194,7 @@ export default function OnboardingPage() {
                     stepNumber
                   )}
                 </div>
-                {stepNumber < 3 && (
+                {stepNumber < 2 && (
                   <div
                     className={`w-8 h-1 mx-2 ${
                       step > stepNumber ? "bg-blue-600" : "bg-gray-200"
@@ -225,18 +211,15 @@ export default function OnboardingPage() {
           <CardHeader className="text-center pb-4">
             <CardTitle className="flex items-center justify-center space-x-2 text-xl">
               {step === 1 && <User className="w-5 h-5 text-blue-600" />}
-              {step === 2 && <FileText className="w-5 h-5 text-blue-600" />}
-              {step === 3 && <CheckCircle className="w-5 h-5 text-blue-600" />}
+              {step === 2 && <CheckCircle className="w-5 h-5 text-blue-600" />}
               <span>
                 {step === 1 && "Βασικά Στοιχεία"}
-                {step === 2 && "Στόχοι Θεραπείας"}
-                {step === 3 && "Επιβεβαίωση"}
+                {step === 2 && "Επιβεβαίωση"}
               </span>
             </CardTitle>
             <p className="text-sm text-gray-600 mt-2">
               {step === 1 && "Εισάγετε τα βασικά στοιχεία του παιδιού σας"}
-              {step === 2 && "Περιγράψτε τους στόχους και το ιστορικό"}
-              {step === 3 && "Επιβεβαιώστε τα στοιχεία και ολοκληρώστε"}
+              {step === 2 && "Επιβεβαιώστε τα στοιχεία και ολοκληρώστε"}
             </p>
           </CardHeader>
           
@@ -280,6 +263,24 @@ export default function OnboardingPage() {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <label htmlFor="idNumber" className="text-sm font-medium text-gray-700">
+                      Αριθμός Ταυτότητας (προαιρετικό)
+                    </label>
+                    <Input
+                      id="idNumber"
+                      type="text"
+                      value={childData.idNumber}
+                      onChange={(e) => handleInputChange("idNumber", e.target.value)}
+                      placeholder="π.χ. 123456789"
+                      className="h-12 text-base"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Ο αριθμός ταυτότητας του παιδιού (προαιρετικό πεδίο)
+                    </p>
+                  </div>
+
                   {childData.age > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <p className="text-sm text-blue-800">
@@ -290,63 +291,10 @@ export default function OnboardingPage() {
                 </motion.div>
               )}
 
-              {/* Step 2: Therapy Goals */}
+              {/* Step 2: Confirmation */}
               {step === 2 && (
                 <motion.div
                   key="step2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
-                >
-                  <div className="space-y-2">
-                    <label htmlFor="goals" className="text-sm font-medium text-gray-700">
-                      Στόχοι Θεραπείας *
-                    </label>
-                    <Textarea
-                      id="goals"
-                      value={childData.goals}
-                      onChange={(e) => handleInputChange("goals", e.target.value)}
-                      placeholder="Περιγράψτε τους στόχους που θέλετε να επιτύχει το παιδί σας μέσω της λογοθεραπείας..."
-                      className="min-h-24 text-base"
-                      disabled={loading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor="medicalHistory" className="text-sm font-medium text-gray-700">
-                      Ιατρικό Ιστορικό (προαιρετικό)
-                    </label>
-                    <Textarea
-                      id="medicalHistory"
-                      value={childData.medicalHistory}
-                      onChange={(e) => handleInputChange("medicalHistory", e.target.value)}
-                      placeholder="Αναφέρετε τυχόν ιατρικές καταστάσεις, διαγνώσεις, ή άλλα σχετικά στοιχεία..."
-                      className="min-h-20 text-base"
-                      disabled={loading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor="additionalNotes" className="text-sm font-medium text-gray-700">
-                      Πρόσθετες Σημειώσεις (προαιρετικό)
-                    </label>
-                    <Textarea
-                      id="additionalNotes"
-                      value={childData.additionalNotes}
-                      onChange={(e) => handleInputChange("additionalNotes", e.target.value)}
-                      placeholder="Οτιδήποτε άλλο θα θέλατε να γνωρίζει ο θεραπευτής..."
-                      className="min-h-20 text-base"
-                      disabled={loading}
-                    />
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Step 3: Confirmation */}
-              {step === 3 && (
-                <motion.div
-                  key="step3"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -370,10 +318,10 @@ export default function OnboardingPage() {
                           {new Date(childData.dateOfBirth).toLocaleDateString('el-GR')}
                         </span>
                       </div>
-                      {childData.goals && (
+                      {childData.idNumber && (
                         <div>
-                          <span className="font-medium text-gray-700">Στόχοι:</span>
-                          <p className="ml-0 mt-1 text-gray-900">{childData.goals}</p>
+                          <span className="font-medium text-gray-700">Αριθμός Ταυτότητας:</span>
+                          <span className="ml-2 text-gray-900">{childData.idNumber}</span>
                         </div>
                       )}
                     </div>
@@ -381,7 +329,7 @@ export default function OnboardingPage() {
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm text-blue-800">
-                      Μετά την επιβεβαίωση, θα δημιουργηθεί το προφίλ του παιδιού σας και θα μπορείτε να προσπελάσετε το dashboard σας. Ο θεραπευτής θα δει τις πληροφορίες και θα προγραμματίσει τις συνεδρίες.
+                      Μετά την επιβεβαίωση, θα δημιουργηθεί το προφίλ του παιδιού σας και θα μπορείτε να προσπελάσετε το dashboard σας. Ο θεραπευτής θα προσθέσει τους θεραπευτικούς στόχους και θα προγραμματίσει τις συνεδρίες.
                     </p>
                   </div>
                 </motion.div>
@@ -412,7 +360,7 @@ export default function OnboardingPage() {
                 <span>{step > 1 ? 'Πίσω' : 'Παράβλεψη'}</span>
               </Button>
 
-              {step < 3 ? (
+              {step < 2 ? (
                 <Button
                   type="button"
                   onClick={handleNext}

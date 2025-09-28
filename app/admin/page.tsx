@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  Home
+  Home,
+  Target
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -175,9 +176,27 @@ interface UserWithDetails extends AppwriteUser {
   children: Student[];
   sessions: Session[];
   totalSessions: number;
+  isAdmin?: boolean; // 👤 ADMIN FLAG: Identifies admin users
 }
 
 
+
+// 🚀 ENHANCED UI/UX: Custom debounce hook for better search performance
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
 
 function AdminPage() {
   const [users, setUsers] = useState<UserWithDetails[]>([]);
@@ -186,6 +205,11 @@ function AdminPage() {
   const [error, setError] = useState("");
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  
+  // 🔧 SETTINGS: Admin settings modal state
+  
+  // 🚀 ENHANCED UI/UX: Debounced search term (400ms delay)
+  const debouncedSearchTerm = useDebounce(searchTerm, 400);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -205,107 +229,46 @@ function AdminPage() {
     }
   }, [isAuthenticated, isAdmin, authLoading, router]);
 
+  // 🚀 OPTIMIZED: Fetch users with single API call
   const fetchUsers = async (page: number = currentPage) => {
     try {
       setLoading(true);
       setError("");
 
-      // Get all users from users_extended with pagination
-      const usersExtendedCollectionId = appwriteConfig.collections.usersExtended || '68aef5f19770fc264f6d';
-      const databaseId = appwriteConfig.databaseId || '68ab99977aad1233b50c';
+      console.log('🚀 OPTIMIZATION: Loading optimized admin dashboard data...');
+      console.log('🔍 DEBUGGING: Calling optimized API:', `/api/admin/dashboard-data?page=${page}&limit=${USERS_PER_PAGE}`);
       
-      // First, get total count for pagination
-      const totalCountResult = await databases.listDocuments(
-        databaseId,
-        usersExtendedCollectionId,
-        [Query.limit(1)]
-      );
+      // ===== SINGLE OPTIMIZED API CALL =====
+      // This replaces 4 separate database queries with 1 efficient call
+      const response = await fetch(`/api/admin/dashboard-data?page=${page}&limit=${USERS_PER_PAGE}`);
       
-      const totalCount = totalCountResult.total;
-      setTotalUsers(totalCount);
-      setTotalPages(Math.ceil(totalCount / USERS_PER_PAGE));
+      if (!response.ok) {
+        throw new Error(`Admin dashboard API error: ${response.status}`);
+      }
       
-      // Get paginated users
-      const usersExtendedResult = await databases.listDocuments(
-        databaseId,
-        usersExtendedCollectionId,
-        [
-          Query.orderDesc('createdAt'), 
-          Query.limit(USERS_PER_PAGE),
-          Query.offset((page - 1) * USERS_PER_PAGE)
-        ]
-      );
-
-      // Get all students to count children per parent
-      const studentsCollectionId = appwriteConfig.collections.students || '68ac213b9a91cd95a008';
-      const studentsResult = await databases.listDocuments(
-        databaseId,
-        studentsCollectionId,
-        [Query.limit(1000)]
-      );
-
-      // Get all sessions to count total sessions per parent
-      const sessionsCollectionId = appwriteConfig.collections.sessions || '68ab99a82b7fbc5dd564';
-      const sessionsResult = await databases.listDocuments(
-        databaseId,
-        sessionsCollectionId,
-        [Query.limit(1000)]
-      );
-
-      // Group students by parentId
-      const studentsByParent = studentsResult.documents.reduce((acc, student) => {
-        const typedStudent = student as unknown as Student;
-        if (typedStudent.parentId) {
-          if (!acc[typedStudent.parentId]) acc[typedStudent.parentId] = [];
-          acc[typedStudent.parentId].push(typedStudent);
-        }
-        return acc;
-      }, {} as Record<string, Student[]>);
-
-      // Count sessions per parent
-      const sessionsByParent = sessionsResult.documents.reduce((acc, session) => {
-        const student = studentsResult.documents.find(s => s.$id === session.studentId) as unknown as Student;
-        if (student && student.parentId) {
-          if (!acc[student.parentId]) acc[student.parentId] = 0;
-          acc[student.parentId]++;
-        }
-        return acc;
-      }, {} as Record<string, number>);
-
-      // Build user list with details
-      const usersWithDetails: UserWithDetails[] = usersExtendedResult.documents.map((extData) => {
-        const typedExtData = extData as unknown as UserExtended;
-        const rawChildren = studentsByParent[typedExtData.userId] || [];
-        
-        const userChildren = rawChildren.map(child => {
-          const typedChild = child as unknown as Student;
-          return {
-            ...typedChild,
-            age: typedChild.dateOfBirth ? calculateAge(typedChild.dateOfBirth) : (typedChild.age || 0)
-          };
-        });
-        
-        return {
-          $id: typedExtData.userId,
-          name: typedExtData.name || 
-            (userChildren.length > 0 ? 
-              `Γονέας του ${userChildren[0].name}` : 
-              `Χρήστης ${typedExtData.userId.slice(-8)}`),
-          email: typedExtData.email || `${typedExtData.phone}@example.com`,
-          phone: typedExtData.phone,
-          registration: typedExtData.createdAt,
-          status: true,
-          extendedData: typedExtData,
-          children: userChildren,
-          sessions: [], // Will be loaded when needed
-          totalSessions: sessionsByParent[typedExtData.userId] || 0
-        };
-      });
-
-      setUsers(usersWithDetails);
+      const { success, data, meta } = await response.json();
+      
+      if (!success) {
+        throw new Error('Admin dashboard API returned unsuccessful response');
+      }
+      
+      console.log(`✅ Admin dashboard loaded in ${meta.loadTime}ms (${meta.improvement})`);
+      
+      // ===== UPDATE ALL STATE FROM SINGLE RESPONSE =====
+      
+      // Set users data (already processed by API)
+      setUsers(data.users as UserWithDetails[]);
+      
+      // Set pagination data
+      setCurrentPage(data.pagination.currentPage);
+      setTotalUsers(data.pagination.totalUsers);
+      setTotalPages(data.pagination.totalPages);
+      
+      console.log(`👥 Loaded ${data.users.length} users on page ${page} of ${data.pagination.totalPages}`);
+      console.log(`📊 Dashboard stats:`, data.statistics);
       
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("❌ Error loading optimized admin dashboard:", error);
       setError(GREEK_TEXT.errorFetchingUsers);
     } finally {
       setLoading(false);
@@ -396,17 +359,68 @@ function AdminPage() {
   };
 
   // Navigation functions
-  const goToFolderManager = (user: UserWithDetails, student: Student) => {
+  const goToFolderManager = async (user: UserWithDetails, student?: Student) => {
+    // 👤 ADMIN AS STUDENT: Handle admin user specially
+    if (user.isAdmin && !student) {
+      try {
+        console.log('🔧 Setting up admin as student for folder management...');
+        const response = await fetch('/api/admin/admin-student');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log(`✅ Admin student created: ${data.data.studentId}`);
+          // Navigate to admin folder management
+          router.push(`/admin/students/${data.data.studentId}/folders`);
+        } else {
+          throw new Error(data.error || 'Failed to setup admin student');
+        }
+      } catch (error) {
+        console.error('❌ Error setting up admin as student:', error);
+        // Show error but don't break the UI
+      }
+      return;
+    }
+    
+    // Regular student handling
+    if (!student) {
+      console.log("No student provided for folder management");
+      return;
+    }
+    
+    console.log(`Navigating to folder manager for student: ${student.name} (${student.$id})`);
+    
     // Navigate to dedicated student folders page
     router.push(`/admin/students/${student.$id}/folders`);
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone?.includes(searchTerm) ||
-    user.children.some(child => child.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleEditTherapyGoals = (user: UserWithDetails) => {
+    // For now, let's navigate to the first child's therapy goals page
+    // Later we can make this a modal or handle multiple children differently
+    const firstChild = user.children.find(child => child.status === 'active') || user.children[0];
+    
+    if (!firstChild) {
+      alert('Δεν βρέθηκε παιδί για επεξεργασία στόχων');
+      return;
+    }
+    
+    // Navigate to a therapy goals page - we'll create this next
+    router.push(`/admin/students/${firstChild.$id}/therapy-goals`);
+  };
+
+  // 🚀 ENHANCED UI/UX: Optimized filtered users with debounced search and memoization
+  const filteredUsers = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return users;
+    }
+    
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    return users.filter(user =>
+      user.name.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      user.phone?.includes(debouncedSearchTerm) ||
+      user.children.some(child => child.name.toLowerCase().includes(searchLower))
+    );
+  }, [users, debouncedSearchTerm]);
 
   // Show loading while checking auth
   if (authLoading) {
@@ -447,16 +461,16 @@ function AdminPage() {
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2 sm:gap-3">
-                            <Button
-                onClick={() => router.push("/dashboard")}
+              <Button
+                onClick={() => router.push('/admin/settings')}
                 variant="outline"
-                              size="sm"
+                size="sm"
                 className="flex items-center gap-2 px-3 py-2 min-h-[44px] flex-1 sm:flex-none justify-center"
               >
-                <Home className="w-4 h-4" />
-                <span className="text-sm font-medium">Dashboard</span>
+                <Settings className="w-4 h-4" />
+                <span className="text-sm font-medium">Ρυθμίσεις</span>
               </Button>
-                          </div>
+            </div>
                     </div>
                   </div>
 
@@ -486,6 +500,12 @@ function AdminPage() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10 h-12 text-base"
                       />
+                      {/* 🚀 ENHANCED UI/UX: Search debounce indicator */}
+                      {searchTerm !== debouncedSearchTerm && searchTerm.length > 0 && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                        </div>
+                      )}
                     </div>
                     <Button 
                       onClick={() => fetchUsers(currentPage)} 
@@ -701,9 +721,33 @@ function AdminPage() {
                                   {user.children.length === 0 ? (
                                     <Card className="bg-white">
                                       <CardContent className="p-6 sm:p-8 text-center">
-                                        <Baby className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
-                                        <p className="text-gray-600 text-sm sm:text-base">{GREEK_TEXT.noChildren}</p>
-                                        <p className="text-xs sm:text-sm text-gray-500 mt-1">{GREEK_TEXT.childrenWillAppear}</p>
+                                        {user.isAdmin ? (
+                                          /* 👤 ADMIN USER: Special admin practice interface */
+                                          <>
+                                            <Settings className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500 mx-auto mb-4" />
+                                            <p className="text-blue-700 text-sm sm:text-base font-medium">
+                                              Λογαριασμός Διαχειριστή
+                                            </p>
+                                            <p className="text-xs sm:text-sm text-blue-600 mt-1 mb-4">
+                                              Χρησιμοποιήστε το σύστημα για εκπαίδευση
+                                            </p>
+                                            <Button
+                                              onClick={() => goToFolderManager(user)}
+                                              size="sm"
+                                              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 min-h-[44px]"
+                                            >
+                                              <FolderOpen className="w-4 h-4" />
+                                              <span className="text-sm font-medium">Διαχείριση Φακέλων (Admin)</span>
+                                            </Button>
+                                          </>
+                                        ) : (
+                                          /* Regular user with no children */
+                                          <>
+                                            <Baby className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
+                                            <p className="text-gray-600 text-sm sm:text-base">{GREEK_TEXT.noChildren}</p>
+                                            <p className="text-xs sm:text-sm text-gray-500 mt-1">{GREEK_TEXT.childrenWillAppear}</p>
+                                          </>
+                                        )}
                                       </CardContent>
                                     </Card>
                                   ) : (
@@ -774,7 +818,7 @@ function AdminPage() {
                                   </h4>
                                   <Card className="bg-white">
                                     <CardContent className="p-3 sm:p-4">
-                                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                                         <Button
                                           onClick={() => handleCreateNewSession(user)}
                                           variant="outline"
@@ -802,6 +846,16 @@ function AdminPage() {
                                         >
                                           <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
                                           <span>{GREEK_TEXT.emailAction}</span>
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="flex items-center justify-center gap-1 min-h-[44px] text-xs sm:text-sm bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                                          onClick={() => handleEditTherapyGoals(user)}
+                                          disabled={user.children.length === 0}
+                                        >
+                                          <Target className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          <span>Θεραπευτικοί Στόχοι</span>
                                         </Button>
                         </div>
                       </CardContent>
@@ -942,6 +996,7 @@ function AdminPage() {
           </Card>
         )}
       </div>
+      
     </div>
   );
 }

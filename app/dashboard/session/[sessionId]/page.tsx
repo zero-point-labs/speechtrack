@@ -202,85 +202,34 @@ function SessionPageContent() {
   const [showFilePreview, setShowFilePreview] = useState(false);
 
   // Load session data from Appwrite
+  // 🚀 OPTIMIZED: Load session data with single API call
   useEffect(() => {
     const loadSessionData = async () => {
       try {
         setLoading(true);
         
-        // Load session from Appwrite
-        const session = await databases.getDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.collections.sessions,
-          sessionId
-        );
-
-        // Load session files using new R2 API
-        const materials = { pdfs: [], videos: [], images: [] };
+        console.log('🚀 Loading optimized session data for:', sessionId);
         
-        try {
-          // Get files for this session from our new API
-          console.log('📁 Loading files for session:', session.$id);
-          const sessionFiles = await fileService.getSessionFiles(session.$id);
-          console.log('📁 Found files:', sessionFiles);
-          
-          // Categorize files by type
-          sessionFiles.forEach((file: any) => {
-            const fileData = {
-              id: file.id,
-              name: file.name,
-              url: file.url,
-              type: file.type,
-              uploadDate: file.uploadDate ? new Date(file.uploadDate).toLocaleDateString('el-GR') : 'Σήμερα',
-              uploadDateRaw: file.uploadDate // Keep original for any additional formatting
-            };
-            
-            if (file.type === 'pdf') {
-              materials.pdfs.push(fileData);
-            } else if (file.type === 'image') {
-              materials.images.push(fileData);
-            } else if (file.type === 'video') {
-              materials.videos.push({
-                ...fileData,
-                thumbnail: file.url, // Use the same URL for thumbnail
-                duration: "N/A" // Duration not available from metadata
-              });
-            }
-          });
-        } catch (error) {
-          console.error('Error loading session files:', error);
-        }
-
-        // Parse JSON fields and ΓεΣΥ note from achievement field
-        let achievement = null;
-        let feedback = [];
-        let gesyNote = '';
+        // ===== SINGLE OPTIMIZED API CALL =====
+        // This replaces 2-3 separate database queries with 1 efficient call
+        const response = await fetch(`/api/session-complete-data/${sessionId}`);
         
-        // Extract ΓεΣΥ note from achievement field (repurposed for ΓεΣΥ note storage)
-        try {
-          if (session.achievement) {
-            // If it's a JSON object (old achievement), ignore it
-            // If it's a simple string, use it as ΓεΣΥ note
-            const parsed = JSON.parse(session.achievement);
-            if (typeof parsed === 'string') {
-              gesyNote = parsed;
-            }
-            // Otherwise, ignore old achievement data
-          }
-        } catch (error) {
-          // If parsing fails, treat as plain string (ΓεΣΥ note)
-          gesyNote = session.achievement || '';
+        if (!response.ok) {
+          throw new Error(`Session API error: ${response.status}`);
         }
         
-        try {
-          if (session.feedback) {
-            feedback = JSON.parse(session.feedback);
-          }
-        } catch (error) {
-          console.error('Error parsing feedback:', error);
+        const { success, data, meta } = await response.json();
+        
+        if (!success) {
+          throw new Error('Session API returned unsuccessful response');
         }
-
+        
+        console.log(`✅ Session data loaded in ${meta.queriesExecuted} optimized queries with ${meta.filesLoaded} files`);
+        
+        // ===== FORMAT FOR UI =====
+        
         // Convert feedback to expected format for UI
-        const formattedFeedback = feedback.map(f => ({
+        const formattedFeedback = data.feedback.map((f: any) => ({
           id: f.id,
           text: f.message,
           date: f.timestamp,
@@ -289,29 +238,61 @@ function SessionPageContent() {
         }));
 
         // Convert achievement to achievements array for UI
-        const achievements = achievement ? [{
+        const achievements = data.achievement ? [{
           id: Date.now().toString(),
-          title: achievement.title,
-          description: achievement.description,
-          icon: achievement.icon === 'star' ? '⭐' : achievement.icon === 'trophy' ? '🏆' : achievement.icon === 'zap' ? '⚡' : '🥇',
-          type: achievement.type === 'skill' ? 'bronze' : achievement.type === 'milestone' ? 'silver' : 'gold',
+          title: data.achievement.title,
+          description: data.achievement.description,
+          icon: data.achievement.icon === 'star' ? '⭐' : data.achievement.icon === 'trophy' ? '🏆' : data.achievement.icon === 'zap' ? '⚡' : '🥇',
+          type: data.achievement.type === 'skill' ? 'bronze' : data.achievement.type === 'milestone' ? 'silver' : 'gold',
           earnedDate: new Date().toLocaleDateString('el-GR')
         }] : [];
 
-        // Convert Appwrite session to UI format
+        // Format materials for UI (files are already loaded and categorized)
+        const materials = {
+          pdfs: data.materials.pdfs.map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,
+            type: file.type,
+            uploadDate: file.uploadDate,
+            uploadDateRaw: file.uploadDateRaw,
+            size: file.size
+          })),
+          images: data.materials.images.map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,
+            type: file.type,
+            uploadDate: file.uploadDate,
+            uploadDateRaw: file.uploadDateRaw
+          })),
+          videos: data.materials.videos.map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,
+            thumbnail: file.thumbnail,
+            duration: file.duration,
+            type: file.type,
+            uploadDate: file.uploadDate,
+            uploadDateRaw: file.uploadDateRaw
+          }))
+        };
+
+        // Convert to UI format
         const sessionForUI: SessionData = {
-          id: session.$id,
-          sessionNumber: session.sessionNumber,
-          title: session.title,
-          date: session.date.split('T')[0], // Convert to date only
-          duration: session.duration + ' λεπτά',
-          status: session.status === 'completed' ? 'completed' : session.status === 'locked' ? 'locked' : 'locked',
-          isPaid: session.isPaid || false,
-          isGESY: session.isGESY || false, // Add ΓεΣΥ status
-          gesyNote, // Add ΓεΣΥ note from achievement field
+          id: data.id,
+          sessionNumber: data.sessionNumber,
+          title: data.title,
+          date: data.date.split('T')[0], // Convert to date only
+          duration: data.duration + ' λεπτά',
+          status: data.status === 'completed' ? 'completed' : data.status === 'locked' ? 'locked' : 'locked',
+          // 🔧 FIX: Use real data from API instead of hardcoded values
+          isPaid: data.isPaid || false,
+          isGESY: data.isGESY || false,
+          gesyNote: data.gesyNote || '',
           therapist: "Μαριλένα Νέστωρος", // Default therapist name
           goals: [], // TODO: Load from session goals
-          description: session.sessionSummary || session.therapistNotes || session.title,
+          description: data.notes || data.title,
           progress: {
             overall: 78,
             pronunciation: 85,
@@ -325,8 +306,10 @@ function SessionPageContent() {
 
         setSessionData(sessionForUI);
         
+        console.log(`📊 Session loaded: ${data.title} with ${data.fileCounts.total} files`);
+        
       } catch (error) {
-        console.error('Error loading session:', error);
+        console.error('❌ Error loading optimized session data:', error);
         // Fallback to mock data if loading fails
         setSessionData(mockSession);
       } finally {

@@ -159,6 +159,26 @@ export default function StudentFoldersPage() {
   const [updatingFolder, setUpdatingFolder] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  
+  // 🚀 ENHANCED UI/UX: Auto-dismiss success messages after 5 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+  
+  // 🚀 ENHANCED UI/UX: Auto-dismiss error messages after 8 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError("");
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   // Create folder form state
   const [newFolderName, setNewFolderName] = useState("");
@@ -306,102 +326,43 @@ export default function StudentFoldersPage() {
     setError("");
 
     try {
-      // Step 1: Create the folder
-      const folderResponse = await fetch('/api/admin/session-folders', {
+      // 🚀 OPTIMIZED: Use bulk creation API instead of slow sequential creation
+      console.log(`🚀 Creating folder "${newFolderName}" with ${sessionSetup.totalWeeks * sessionSetup.sessionsPerWeek} sessions using BULK API`);
+      
+      const startTime = Date.now();
+      
+      const response = await fetch('/api/admin/bulk-folder-creation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId,
-          name: newFolderName.trim(),
-          description: newFolderDescription.trim() || `${sessionSetup.totalWeeks} weeks therapy program`,
+          folderName: newFolderName.trim(),
+          folderDescription: newFolderDescription.trim() || `${sessionSetup.totalWeeks} weeks therapy program`,
+          sessionSetup,
           setActive: folders.length === 0 // Set as active if it's the first folder
         })
       });
 
-      const folderData = await folderResponse.json();
+      const result = await response.json();
 
-      if (!folderData.success) {
-        throw new Error(folderData.error || GREEK_TEXT.failedToCreateFolder);
+      if (!result.success) {
+        throw new Error(result.error || GREEK_TEXT.failedToCreateFolder);
       }
 
-      const folderId = folderData.folder.$id;
-
-      // Step 2: Create sessions using template-based approach
-      const sessions = [];
-      const startDate = new Date();
-      const startingSessionNumber = 1; // Per-folder numbering starts from 1
-
-      for (let week = 0; week < sessionSetup.totalWeeks; week++) {
-        for (let sessionIndex = 0; sessionIndex < sessionSetup.sessionsPerWeek; sessionIndex++) {
-          const template = sessionSetup.sessionTemplates[sessionIndex];
-          const sessionDate = new Date(startDate);
-          sessionDate.setDate(startDate.getDate() + (week * 7));
-          
-          const sessionNumber = startingSessionNumber + (week * sessionSetup.sessionsPerWeek) + sessionIndex;
-          
-          sessions.push({
-            studentId,
-            folderId,
-            sessionNumber: sessionNumber,
-            title: `${GREEK_TEXT.session} ${sessionNumber}`,
-            description: `${template.duration} λεπτά συνεδρία`,
-            date: sessionDate.toISOString().split('T')[0], // Use YYYY-MM-DD format
-            duration: `${template.duration} λεπτά`,
-            status: 'locked', // All sessions start as locked
-            isPaid: false,
-            therapistNotes: null
-          });
-        }
-      }
-
-      console.log(`📝 About to create ${sessions.length} sessions for folder ${folderId}`);
+      const endTime = Date.now();
+      const totalTime = endTime - startTime;
       
-      // Step 3: Create all sessions SEQUENTIALLY to avoid race conditions
-      let successCount = 0;
-      let failCount = 0;
+      console.log(`🎉 BULK CREATION SUCCESS! Created folder + ${result.data.sessions.length} sessions in ${totalTime}ms`);
+      console.log(`⚡ Performance improvement: ${result.meta.performance.improvement}`);
       
-      console.log('🚀 Creating sessions sequentially to avoid ID conflicts...');
-      
-      for (let i = 0; i < sessions.length; i++) {
-        const sessionData = sessions[i];
-        
-        try {
-          console.log(`📝 Creating session ${i + 1}/${sessions.length} (Session #${sessionData.sessionNumber})...`);
-          
-          const sessionResponse = await fetch(`/api/admin/session-folders/${folderId}/sessions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(sessionData)
-          });
+      // Success message with performance stats
+      setSuccess(`
+        Φάκελος "${result.data.folder.name}" δημιουργήθηκε επιτυχώς με ${result.data.sessions.length} συνεδρίες! 
+        ⚡ Χρόνος: ${totalTime < 1000 ? `${totalTime}ms` : `${(totalTime/1000).toFixed(1)}s`}
+        (${result.meta.performance.improvement})
+      `.trim());
 
-          const sessionResult = await sessionResponse.json();
-          
-          if (sessionResult.success) {
-            successCount++;
-            console.log(`✅ Session ${sessionData.sessionNumber} created successfully`);
-          } else {
-            failCount++;
-            console.error(`❌ Failed to create session ${sessionData.sessionNumber}:`, sessionResult.error);
-          }
-        } catch (error) {
-          failCount++;
-          console.error(`❌ Network error creating session ${sessionData.sessionNumber}:`, error);
-        }
-        
-        // Add a small delay between requests to prevent overwhelming the server
-        if (i < sessions.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-      
-      console.log(`📊 Session creation complete: ${successCount} successful, ${failCount} failed`);
-      
-      if (failCount > 0) {
-        setError(`Δημιουργήθηκε ο φάκελος αλλά ${failCount}/${sessions.length} συνεδρίες απέτυχαν. Ελέγξτε την κονσόλα για λεπτομέρειες.`);
-      } else {
-        setSuccess(`Φάκελος "${folderData.folder.name}" δημιουργήθηκε επιτυχώς με ${sessions.length} συνεδρίες!`);
-      }
-
+      // Reset form and reload folders
       setNewFolderName("");
       setNewFolderDescription("");
       setShowCreateForm(false);

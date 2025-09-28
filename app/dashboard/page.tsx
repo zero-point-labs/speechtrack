@@ -51,6 +51,7 @@ import {
   Send,
   Clock,
   Target,
+  Settings,
   Trophy,
   ChevronLeft,
   ChevronRight,
@@ -78,6 +79,10 @@ interface Student {
   age?: number;
   dateOfBirth?: string;
   parentContact: string;
+  therapyGoals?: string;
+  idNumber?: string;
+  status?: string;
+  joinDate?: string;
 }
 
 interface Session {
@@ -391,22 +396,16 @@ function DashboardContent() {
     finalSessionNumber: -1
   });
 
-  // Check for linked student (skip for admin users)
+  // Check for linked student (including admin students)
   useEffect(() => {
     const checkLinkedStudent = async () => {
-      if (!user?.id) return;
-
-      // Admin users don't need client codes, so skip the check
-      if (isAdmin) {
-        setLinkedStudent({ id: 'admin', name: 'Admin User' }); // Mock student for admin
-        setCheckingStudent(false);
-        return;
-      }
+      if (!user || !user.id) return;
 
       try {
         setCheckingStudent(true);
         
-        // Find student linked to this parent
+        // 👤 ADMIN STUDENT: Admin users also need to find their student record
+        // Find student linked to this parent (works for both regular users and admins)
         const studentQuery = await databases.listDocuments(
           appwriteConfig.databaseId,
           appwriteConfig.collections.students,
@@ -417,12 +416,42 @@ function DashboardContent() {
 
         if (studentQuery.documents.length > 0) {
           const student = studentQuery.documents[0];
-          setLinkedStudent(student);
+          console.log(`🔍 Found student for user ${user.id}:`, student.name, `(ID: ${student.$id})`);
+          setLinkedStudent(student as any); // Type assertion to bypass TypeScript issues
           
           // Load sessions for this student
           await loadSessionsForStudent(student.$id, 1);
         } else {
-          setLinkedStudent(null);
+          console.log(`⚠️ No student found for user ${user.id}`);
+          
+          // 👤 ADMIN AUTO-SETUP: If admin user has no student, try to create one
+          if (isAdmin) {
+            console.log('🔧 Admin user detected, trying to create admin student...');
+            try {
+              const response = await fetch('/api/admin/admin-student');
+              const data = await response.json();
+              
+              if (data.success && data.data) {
+                console.log(`✅ Created admin student: ${data.data.studentId}`);
+                setLinkedStudent({
+                  $id: data.data.studentId,
+                  name: data.data.student.name,
+                  ...data.data.student
+                } as any);
+                
+                // Load sessions for the new admin student
+                await loadSessionsForStudent(data.data.studentId, 1);
+              } else {
+                console.error('❌ Failed to create admin student:', data.error);
+                setLinkedStudent(null);
+              }
+            } catch (error) {
+              console.error('❌ Error creating admin student:', error);
+              setLinkedStudent(null);
+            }
+          } else {
+            setLinkedStudent(null);
+          }
         }
       } catch (error) {
         console.error('Error checking linked student:', error);
@@ -589,167 +618,46 @@ function DashboardContent() {
     }
   }, []);
 
-  // Load sessions for student with pagination
+  // 🚀 OPTIMIZED: Load sessions for student with pagination using new combined API
   const loadSessionsForStudent = useCallback(async (studentId: string, page: number = 1) => {
     try {
       setLoadingPage(page !== 1); // Show loading for page changes, not initial load
       
-      console.log('Loading sessions for student:', studentId, 'page:', page);
+      console.log('🚀 Loading optimized dashboard data for student:', studentId, 'page:', page);
       
-      // First, get the active folder for this student
-      let activeFolderId = null;
-      try {
-        const foldersResponse = await fetch(`/api/admin/session-folders?studentId=${studentId}`);
-        const foldersData = await foldersResponse.json();
-        
-        if (foldersData.success && foldersData.folders) {
-          const activeFolder = foldersData.folders.find((f: any) => f.isActive);
-          if (activeFolder) {
-            activeFolderId = activeFolder.$id;
-            console.log(`Found active folder: ${activeFolder.name} (${activeFolderId})`);
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to fetch session folders, showing all sessions:', error);
+      // ===== SINGLE OPTIMIZED API CALL =====
+      // This replaces 6-8 separate database queries with 1 efficient call
+      const response = await fetch(`/api/dashboard-data/${studentId}?page=${page}&limit=${sessionsPerPage}`);
+      
+      if (!response.ok) {
+        throw new Error(`Dashboard API error: ${response.status}`);
       }
       
-      // Build queries with optional folder filtering
-      const baseQueries = [Query.equal('studentId', studentId)];
-      if (activeFolderId) {
-        baseQueries.push(Query.equal('folderId', activeFolderId));
+      const { success, data, meta } = await response.json();
+      
+      if (!success) {
+        throw new Error('Dashboard API returned unsuccessful response');
       }
       
-      // First, get total count of sessions for this student (in active folder if exists)
-      const totalCountResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          ...baseQueries,
-          Query.limit(1) // We just need the total count
-        ]
-      );
+      console.log(`✅ Dashboard data loaded in ${meta.queriesExecuted} optimized queries (vs 8+ in old approach)`);
       
-      const totalCount = totalCountResponse.total;
-      setTotalSessions(totalCount);
-      setTotalPages(Math.ceil(totalCount / sessionsPerPage));
+      // ===== UPDATE ALL STATE FROM SINGLE RESPONSE =====
       
-      // Load global mystery status with the total count
-      await loadGlobalMysteryStatus(studentId, totalCount);
+      // Update session counts and pagination
+      setTotalSessions(data.totalSessions);
+      setCompletedSessions(data.completedSessions);
+      setTotalPages(data.totalPages);
+      setCurrentPage(data.currentPage);
       
-      // Get count of completed sessions (in active folder if exists)
-      const completedCountResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          ...baseQueries,
-          Query.equal('status', 'completed'),
-          Query.limit(1) // We just need the total count
-        ]
-      );
-      
-      setCompletedSessions(completedCountResponse.total);
-      
-      // Then get the paginated sessions (from active folder if exists) - removed ordering from query
-      const offset = (page - 1) * sessionsPerPage;
-      const sessionsResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          ...baseQueries,
-          Query.limit(sessionsPerPage),
-          Query.offset(offset)
-        ]
-      );
-      
-      console.log(`Loaded ${sessionsResponse.documents.length} sessions for student: ${studentId} (page ${page})`);
-      console.log('Raw sessions response:', sessionsResponse);
-      
-      // Sort sessions numerically by extracting number from sessionNumber string
-      sessionsResponse.documents.sort((a, b) => {
-        const getSessionNumber = (sessionNumber) => {
-          if (typeof sessionNumber === 'string' && sessionNumber.includes(' - ')) {
-            const num = parseInt(sessionNumber.split(' - ')[0]);
-            return isNaN(num) ? 0 : num;
-          }
-          return typeof sessionNumber === 'number' ? sessionNumber : parseInt(sessionNumber) || 0;
-        };
-        return getSessionNumber(a.sessionNumber) - getSessionNumber(b.sessionNumber);
+      // Update mystery status
+      setGlobalMysteryStatus({
+        middleCompleted: data.mysteryStatus.middleCompleted,
+        finalCompleted: data.mysteryStatus.finalCompleted,
+        middleSessionNumber: data.mysteryStatus.middleSessionNumber,
+        finalSessionNumber: data.mysteryStatus.finalSessionNumber
       });
       
-      // Convert real sessions to the format expected by the UI
-      const realSessionsData = await Promise.all(sessionsResponse.documents.map(async session => {
-        // Load session files from Appwrite Storage
-        const materials = { pdfs: [], images: [], videos: [] };
-        
-        try {
-          // Get files for this session from storage
-          // Files are uploaded with sessionId prefix in their name
-          const files = await storage.listFiles(appwriteConfig.buckets.files);
-          const sessionFiles = files.files.filter(file => 
-            file.name.startsWith(`${session.$id}_`)
-          );
-          
-          // Categorize files by type
-          sessionFiles.forEach(file => {
-            const fileType = file.mimeType || '';
-            const fileData = {
-              id: file.$id,
-              name: file.name.replace(`${session.$id}_`, ''), // Remove session ID prefix from display name
-              size: fileService.formatFileSize(file.sizeOriginal),
-              uploadDate: new Date(file.$createdAt).toLocaleDateString('el-GR'),
-              url: fileService.getFileViewUrl(file.$id),
-              type: fileType,
-              description: `Uploaded on ${new Date(file.$createdAt).toLocaleDateString('el-GR')}`
-            };
-            
-            if (fileType.includes('pdf')) {
-              materials.pdfs.push(fileData);
-            } else if (fileType.includes('image')) {
-              materials.images.push(fileData);
-            } else if (fileType.includes('video')) {
-              materials.videos.push(fileData);
-            }
-          });
-        } catch (error) {
-          console.error('Error loading session files:', error);
-        }
-        
-        // Parse JSON fields and ΓεΣΥ note from achievement field
-        let achievement = null;
-        let feedback = [];
-        let gesyNote = '';
-        
-        // Extract ΓεΣΥ note from achievement field (repurposed for ΓεΣΥ note storage)
-        try {
-          if (session.achievement) {
-            // If it's a JSON object (old achievement), ignore it
-            // If it's a simple string, use it as ΓεΣΥ note
-            const parsed = JSON.parse(session.achievement);
-            if (typeof parsed === 'string') {
-              gesyNote = parsed;
-            }
-            // Otherwise, ignore old achievement data
-          }
-        } catch (error) {
-          // If parsing fails, treat as plain string (ΓεΣΥ note)
-          gesyNote = session.achievement || '';
-        }
-        
-        try {
-          if (session.feedback) {
-            feedback = JSON.parse(session.feedback);
-          }
-        } catch (error) {
-          console.error('Error parsing feedback:', error);
-        }
-
-        // Debug logging
-        console.log('Session data for', session.title, ':', {
-          sessionSummary: session.sessionSummary,
-          achievement: session.achievement,
-          feedback: session.feedback,
-          parsed: { achievement, feedback }
-        });
+      // ===== PROCESS SESSIONS FOR UI =====
 
         // Extract clean session number for display
         const getDisplaySessionNumber = (sessionNumber) => {
@@ -760,37 +668,53 @@ function DashboardContent() {
           return sessionNumber;
         };
 
-        return {
-          id: session.$id,
+      // Convert sessions to UI format
+      const formattedSessions = data.sessions.map(session => ({
+        id: session.id,
           sessionNumber: getDisplaySessionNumber(session.sessionNumber),
           title: session.title,
-          description: session.description || '',
+        description: session.notes || '',
           date: session.date,
           duration: session.duration + ' λεπτά',
           status: session.status === 'cancelled' ? 'canceled' : session.status,
           isLocked: session.status === 'locked',
-          isPaid: session.isPaid,
-          isGESY: session.isGESY || false, // Add ΓεΣΥ status
-          gesyNote, // Add ΓεΣΥ note from achievement field
-          therapistNotes: session.therapistNotes || '',
+        // 🔧 FIX: Use real data from API instead of hardcoded values
+        isPaid: session.isPaid || false,
+        isGESY: session.isGESY || false,
+        gesyNote: session.gesyNote || '',
+        therapistNotes: session.notes || '',
           homework: [],
-          achievements: achievement ? [achievement] : [], // Convert single achievement to array for UI compatibility
-          sessionSummary: session.sessionSummary || session.therapistNotes || '',
-          achievement, // Keep the single achievement object for detailed display
-          materials,
-          feedback
-        };
+        achievements: session.achievement ? [session.achievement] : [],
+        sessionSummary: session.notes || '',
+        achievement: session.achievement,
+        // Use file counts for now - actual files loaded on demand
+        materials: {
+          pdfs: [], // Will be loaded when session is opened
+          images: [],
+          videos: []
+        },
+        // Quick access to file counts for UI badges
+        fileCounts: session.fileCounts,
+        feedback: session.feedback || []
       }));
       
-      setRealSessions(realSessionsData);
-      setCurrentPage(page);
+      setRealSessions(formattedSessions);
+      
+      console.log(`📊 Loaded ${formattedSessions.length} sessions with file counts:`, 
+        formattedSessions.map(s => `${s.title}: ${s.fileCounts?.total || 0} files`));
       
     } catch (error) {
-      console.error('Error loading sessions:', error);
+      console.error('❌ Error loading optimized dashboard data:', error);
+      
+      // Fallback to show error state instead of breaking
+      setRealSessions([]);
+      setTotalSessions(0);
+      setCompletedSessions(0);
+      setTotalPages(1);
     } finally {
       setLoadingPage(false);
     }
-  }, [sessionsPerPage, loadGlobalMysteryStatus]);
+  }, [sessionsPerPage]);
 
   // Calculate real stats from session data
   const calculateStats = useCallback(() => {
@@ -1958,6 +1882,43 @@ function DashboardContent() {
                 </div>
               </div>
 
+              {/* Therapy Goals Section */}
+              {linkedStudent.therapyGoals && (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                    <Target className="w-4 h-4 mr-2 text-green-500" />
+                    Θεραπευτικοί Στόχοι (Από τον Θεραπευτή)
+                  </h3>
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                    <div className="prose prose-sm max-w-none text-gray-700">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {linkedStudent.therapyGoals}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-green-200">
+                      <p className="text-xs text-green-700 italic">
+                        ✨ Αυτοί οι στόχοι έχουν τεθεί από τον θεραπευτή σας και θα αναθεωρούνται κατά τη διάρκεια της θεραπείας.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Student ID Number */}
+              {linkedStudent.idNumber && (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                    <Key className="w-4 h-4 mr-2 text-purple-500" />
+                    Αριθμός Ταυτότητας
+                  </h3>
+                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-3 rounded-lg border border-purple-200">
+                    <p className="text-sm font-mono font-medium text-gray-900">
+                      {linkedStudent.idNumber}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Parent/Guardian Contact */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3 flex items-center">
@@ -2187,6 +2148,21 @@ function DashboardContent() {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* 👤 ADMIN PANEL: Admin-only navigation button */}
+            {isAdmin && (
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={() => router.push('/admin')}
+                  size="sm"
+                  variant="outline"
+                  className="flex items-center gap-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Admin Panel</span>
+                </Button>
+              </motion.div>
+            )}
+            
             <div className="hidden md:block text-right">
               <p className="text-sm font-medium text-gray-900">{linkedStudent?.name || 'Φόρτωση...'}</p>
               <p className="text-xs text-gray-500">Πρόοδος Συνεδριών: {calculateStats().completed}/{calculateStats().total}</p>

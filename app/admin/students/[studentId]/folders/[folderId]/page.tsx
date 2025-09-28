@@ -118,6 +118,16 @@ interface Session {
   therapistNotes?: string;
 }
 
+// 🔧 Helper function to extract numeric session number for display
+const getDisplaySessionNumber = (sessionNumber: string | number): string => {
+  if (typeof sessionNumber === 'number') return sessionNumber.toString();
+  if (typeof sessionNumber === 'string') {
+    const match = sessionNumber.match(/(\d+)/);
+    return match ? match[1] : sessionNumber;
+  }
+  return sessionNumber?.toString() || '0';
+};
+
 export default function FolderSessionsPage() {
   const params = useParams();
   const router = useRouter();
@@ -141,60 +151,80 @@ export default function FolderSessionsPage() {
     }
   }, [isAuthenticated, isAdmin, authLoading, router]);
 
-  // Load data
+  // 🚀 OPTIMIZED: Load all data with single API call
   const loadData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      // Load student
-      const studentResponse = await databases.getDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.students,
-        studentId
-      );
-      setStudent(studentResponse as unknown as Student);
-
-      // Load folder (use API to get fresh stats)
-      console.log('📊 Loading folder with fresh statistics...');
-      const folderApiResponse = await fetch(`/api/admin/session-folders/${folderId}`);
-      const folderApiData = await folderApiResponse.json();
+      console.log('🚀 OPTIMIZATION: Loading optimized folder complete data...');
+      console.log('🔍 DEBUGGING: Calling optimized API:', `/api/admin/folder-complete-data/${folderId}`);
       
-      if (folderApiData.success) {
-        setFolder(folderApiData.folder as SessionFolder);
-        console.log('📊 Loaded fresh folder stats:', folderApiData.folder.totalSessions, 'total sessions');
-      } else {
-        // Fallback to direct database call
-        const folderResponse = await databases.getDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.collections.sessionFolders,
-          folderId
-        );
-        setFolder(folderResponse as unknown as SessionFolder);
+      // ===== SINGLE OPTIMIZED API CALL =====
+      // This replaces 4 separate queries with 1 efficient call
+      const response = await fetch(`/api/admin/folder-complete-data/${folderId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Folder API error: ${response.status}`);
       }
-
-      // Load sessions for this folder
-      const sessionsResponse = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.collections.sessions,
-        [
-          Query.equal('folderId', folderId),
-          Query.limit(100)
-        ]
-      );
       
-      // Convert and sort sessions by sessionNumber as integers (not strings)
-      const sortedSessions = (sessionsResponse.documents as unknown as Session[])
-        .map(session => ({
-          ...session,
-          sessionNumber: parseInt(session.sessionNumber as any) || 0 // Ensure it's a number
-        }))
-        .sort((a, b) => a.sessionNumber - b.sessionNumber);
+      const { success, data, meta } = await response.json();
       
-      setSessions(sortedSessions);
+      if (!success) {
+        throw new Error('Folder API returned unsuccessful response');
+      }
+      
+      console.log(`✅ Folder complete data loaded in ${meta.loadTime}ms (${meta.improvement})`);
+      
+      // ===== UPDATE ALL STATE FROM SINGLE RESPONSE =====
+      
+      // Set student data
+      setStudent({
+        $id: data.student.id,
+        name: data.student.name,
+        age: data.student.age,
+        dateOfBirth: data.student.dateOfBirth,
+        parentId: data.student.parentId,
+        status: data.student.status
+      } as Student);
+      
+      // Set folder data with fresh statistics
+      setFolder({
+        $id: data.folder.id,
+        studentId: data.folder.studentId,
+        name: data.folder.name,
+        description: data.folder.description,
+        isActive: data.folder.isActive,
+        totalSessions: data.folder.totalSessions, // Fresh calculated stats
+        completedSessions: data.folder.completedSessions,
+        startDate: data.folder.startDate,
+        status: data.folder.status
+      } as SessionFolder);
+      
+      // Set sessions data (already sorted by API)
+      const formattedSessions = data.sessions.map((session: any) => ({
+        $id: session.id,
+        folderId: session.folderId,
+        studentId: session.studentId,
+        sessionNumber: session.sessionNumber, // Keep original format
+        title: session.title,
+        description: session.description,
+        date: session.date,
+        duration: session.duration,
+        status: session.status,
+        isPaid: session.isPaid,
+        isGESY: session.isGESY,
+        therapistNotes: session.therapistNotes,
+        achievement: session.achievement,
+        feedback: session.feedback
+      }));
+      
+      setSessions(formattedSessions);
+      
+      console.log(`📊 Loaded folder "${data.folder.name}" with ${data.sessions.length} sessions`);
 
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("❌ Error loading optimized folder data:", error);
       setError(GREEK_TEXT.failedToLoad);
     } finally {
       setLoading(false);
@@ -471,7 +501,7 @@ export default function FolderSessionsPage() {
                         session.status === 'completed' ? 'bg-green-600' :
                         session.status === 'unlocked' ? 'bg-blue-600' : 'bg-gray-400'
                       }`}>
-                        {session.sessionNumber}
+                        {getDisplaySessionNumber(session.sessionNumber)}
                       </div>
                       
                       <div className="flex-1 min-w-0">
