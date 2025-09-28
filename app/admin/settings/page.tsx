@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
+import TutorialCard from '@/components/admin/TutorialCard';
 
 interface Banner {
   id: string;
@@ -541,6 +542,36 @@ export default function AdminSettingsPage() {
             </Card>
           </div>
         </div>
+      </div>
+
+      {/* Tutorial Card */}
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+        <TutorialCard
+          title="Οδηγός Ρυθμίσεων Διαχειριστή"
+          description="Μάθετε πώς να διαχειρίζεστε τα μηνύματα banner, τις ρυθμίσεις του συστήματος και την πλοήγηση."
+          steps={[
+            {
+              title: "Προσθήκη Νέου Banner",
+              description: "Κάντε κλικ στο κουμπί 'Προσθήκη' για να δημιουργήσετε νέο μήνυμα banner.",
+              action: "Επιλέξτε τύπο (Προειδοποίηση, Πληροφορία, Επικοινωνία) και γράψτε το κείμενο"
+            },
+            {
+              title: "Επεξεργασία Banner",
+              description: "Κάντε κλικ στο εικονίδιο μολυβιού για να επεξεργαστείτε υπάρχον banner.",
+              action: "Αλλάξτε το κείμενο ή τον τύπο και κάντε κλικ στο εικονίδιο αποθήκευσης"
+            },
+            {
+              title: "Ενεργοποίηση/Απενεργοποίηση",
+              description: "Χρησιμοποιήστε το εικονίδιο ματιού για να ενεργοποιήσετε ή απενεργοποιήσετε banners.",
+              action: "Μόνο τα ενεργά banners εμφανίζονται στο dashboard των μαθητών"
+            },
+            {
+              title: "Γρήγορες Ενέργειες",
+              description: "Χρησιμοποιήστε τα κουμπιά στην αριστερή πλευρά για γρήγορη πρόσβαση σε λειτουργίες.",
+              action: "Προβολή ως Μαθητής, Πίνακας Διαχείρισης, ή Αποσύνδεση"
+            }
+          ]}
+        />
       </div>
 
       {/* Mobile Success Message */}
