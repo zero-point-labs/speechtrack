@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-middleware';
+import { useAuth, useLogout } from '@/lib/auth-middleware';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,7 +72,8 @@ const BANNER_TYPES = {
 
 export default function AdminSettingsPage() {
   const router = useRouter();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const logout = useLogout();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [banners, setBanners] = useState<Banner[]>([]);
