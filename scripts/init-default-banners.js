@@ -28,7 +28,7 @@ async function initializeDefaultBanners() {
     // Create default banners
     const defaultBanners = [
       {
-        text: 'Οι ακυρώσεις τελευταίας στιγμής χρεώνονται κανονικά',
+        text: 'Ακυρώσεις χρεώνονται κανονικά',
         type: 'warning',
         bgColor: 'from-orange-50 to-red-50',
         borderColor: 'border-orange-200',
@@ -39,7 +39,7 @@ async function initializeDefaultBanners() {
         order: 1
       },
       {
-        text: 'Για οποιαδήποτε βοήθεια καλέστε μας στο: 96684911',
+        text: 'Βοήθεια: 96684911',
         type: 'contact',
         bgColor: 'from-blue-50 to-indigo-50',
         borderColor: 'border-blue-200',

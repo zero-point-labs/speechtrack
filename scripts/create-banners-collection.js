@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Load environment variables from .env.local
+require('dotenv').config({ path: '.env.local' });
+
 const { createServerClient } = require('../lib/appwrite.config');
 const { ID } = require('node-appwrite');
 
@@ -76,7 +79,7 @@ async function createBannersCollection() {
     // Create default banners
     const defaultBanners = [
       {
-        text: 'Οι ακυρώσεις τελευταίας στιγμής χρεώνονται κανονικά',
+        text: 'Ακυρώσεις χρεώνονται κανονικά',
         type: 'warning',
         bgColor: 'from-orange-50 to-red-50',
         borderColor: 'border-orange-200',
@@ -87,7 +90,7 @@ async function createBannersCollection() {
         order: 1
       },
       {
-        text: 'Για οποιαδήποτε βοήθεια καλέστε μας στο: 96684911',
+        text: 'Βοήθεια: 96684911',
         type: 'contact',
         bgColor: 'from-blue-50 to-indigo-50',
         borderColor: 'border-blue-200',

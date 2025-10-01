@@ -56,7 +56,7 @@ export default function RotatingBanner({ className = "" }: RotatingBannerProps) 
         setBanners([
           {
             id: 'default-1',
-            text: 'Οι ακυρώσεις τελευταίας στιγμής χρεώνονται κανονικά',
+            text: 'Ακυρώσεις χρεώνονται κανονικά',
             type: 'warning',
             bgColor: 'from-orange-50 to-red-50',
             borderColor: 'border-orange-200',
@@ -67,7 +67,7 @@ export default function RotatingBanner({ className = "" }: RotatingBannerProps) 
           },
           {
             id: 'default-2',
-            text: 'Για οποιαδήποτε βοήθεια καλέστε μας στο: 96684911',
+            text: 'Βοήθεια: 96684911',
             type: 'contact',
             bgColor: 'from-blue-50 to-cyan-50',
             borderColor: 'border-blue-200',

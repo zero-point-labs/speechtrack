@@ -339,11 +339,15 @@ export default function AdminSettingsPage() {
                                 <div>
                                   <label className="block text-sm font-medium mb-2">
                                     Κείμενο Μηνύματος
+                                    <span className="text-xs text-gray-500 ml-2">
+                                      ({newBanner.text?.length || 0}/50 χαρακτήρες)
+                                    </span>
                                   </label>
                                   <Textarea
                                     value={newBanner.text}
                                     onChange={(e) => setNewBanner({ ...newBanner, text: e.target.value })}
                                     placeholder="Εισάγετε το μήνυμα..."
+                                    maxLength={50}
                                     rows={2}
                                   />
                                 </div>
@@ -428,11 +432,17 @@ export default function AdminSettingsPage() {
                               <div className="flex-1 min-w-0">
                                 {isEditing ? (
                                   <div className="space-y-3">
-                                    <Textarea
-                                      value={banner.text}
-                                      onChange={(e) => updateBanner(banner.id, { text: e.target.value })}
-                                      rows={2}
-                                    />
+                                    <div>
+                                      <Textarea
+                                        value={banner.text}
+                                        onChange={(e) => updateBanner(banner.id, { text: e.target.value })}
+                                        maxLength={50}
+                                        rows={2}
+                                      />
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {banner.text?.length || 0}/50 χαρακτήρες
+                                      </div>
+                                    </div>
                                     <div className="flex items-center gap-4">
                                       <Select
                                         value={banner.type}
