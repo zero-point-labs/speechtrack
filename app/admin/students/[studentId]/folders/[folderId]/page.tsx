@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import TutorialCard from "@/components/admin/TutorialCard";
-import { FolderPageSkeleton } from "@/components/admin/FolderPageSkeleton";
 
 // Greek language constants
 const GREEK_TEXT = {
@@ -298,16 +297,22 @@ export default function FolderSessionsPage() {
   };
 
   // Show loading while checking auth
-  if (authLoading || loading) {
-    return <FolderPageSkeleton />;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">{GREEK_TEXT.loading}</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated || !isAdmin) {
     return null;
   }
 
-  // Only show "not found" if we're not loading and the data is actually missing
-  if (!loading && (!student || !folder)) {
+  if (!student || !folder) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4">
         <div className="text-center">

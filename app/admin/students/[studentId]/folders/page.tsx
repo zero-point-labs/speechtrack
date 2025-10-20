@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import TutorialCard from "@/components/admin/TutorialCard";
-import { FolderPageSkeleton } from "@/components/admin/FolderPageSkeleton";
 
 // Greek language constants
 const GREEK_TEXT = {
@@ -520,17 +519,23 @@ export default function StudentFoldersPage() {
     }
   };
 
-  // Show loading while checking auth or loading data
-  if (authLoading || loading) {
-    return <FolderPageSkeleton />;
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">{GREEK_TEXT.loading}</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated || !isAdmin) {
     return null;
   }
 
-  // Only show "not found" if we're not loading and the student is actually missing
-  if (!loading && !student) {
+  if (!student) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4">
         <div className="text-center">
@@ -566,7 +571,7 @@ export default function StudentFoldersPage() {
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 flex items-center gap-2 sm:gap-3">
                   <Folder className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-blue-600 flex-shrink-0" />
                   <span className="leading-tight">
-                    {GREEK_TEXT.sessionFoldersFor} {student?.name || 'Φόρτωση...'}
+                    {GREEK_TEXT.sessionFoldersFor} {student.name}
                   </span>
                 </h1>
                 <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
