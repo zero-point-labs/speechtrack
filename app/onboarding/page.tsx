@@ -166,13 +166,18 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <motion.div
-            className="w-16 h-16 bg-gradient-to-r from-blue-600 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4"
+            className="w-16 h-16 mx-auto mb-4"
             whileHover={{ scale: 1.05 }}
             transition={{ duration: 0.2 }}
           >
-            <Baby className="w-8 h-8 text-white" />
+            <img 
+              src="/logo_transparent_bg.png" 
+              alt="Marilena Nestoros Logo" 
+              className="w-full h-full object-contain"
+            />
           </motion.div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Καλώς ήρθατε στο SpeechTrack</h1>
+          <h1 className="text-2xl font-semibold text-gray-800 mb-1">Μαριλένα Νέστορος</h1>
+          <p className="text-base text-gray-600 mb-2">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
           <p className="text-gray-600">Ας δημιουργήσουμε το προφίλ του παιδιού σας</p>
         </div>
 

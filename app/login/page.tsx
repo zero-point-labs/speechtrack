@@ -58,12 +58,12 @@ export default function LoginPage() {
     
     // Validation
     if (!formData.email.trim()) {
-      setError("Please enter your email address");
+      setError("Παρακαλώ εισάγετε τη διεύθυνση email σας");
       return;
     }
 
     if (!formData.password.trim()) {
-      setError("Please enter your password");
+      setError("Παρακαλώ εισάγετε τον κωδικό σας");
       return;
     }
 
@@ -84,10 +84,10 @@ export default function LoginPage() {
           router.push("/dashboard");
         }
       } else {
-        setError(result.error || "Login failed");
+        setError(result.error || "Η σύνδεση απέτυχε");
       }
     } catch (error) {
-      setError("An unexpected error occurred");
+      setError("Παρουσιάστηκε απροσδόκητο σφάλμα");
       console.error("Login error:", error);
     } finally {
       setLoading(false);
@@ -108,12 +108,16 @@ export default function LoginPage() {
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-orange-500 rounded-2xl shadow-lg mb-4"
+            className="w-20 h-20 mx-auto mb-4"
           >
-            <MessageCircle className="w-8 h-8 text-white" />
+            <img 
+              src="/logo_transparent_bg.png" 
+              alt="Marilena Nestoros Logo" 
+              className="w-full h-full object-contain"
+            />
           </motion.div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">SpeechTrack</h1>
-          <p className="text-gray-600">Welcome back, Parent!</p>
+          <p className="text-2xl font-semibold text-gray-800">Μαριλένα Νέστορος</p>
+          <p className="text-base text-gray-600">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
         </div>
 
         {/* Login Card */}
@@ -121,10 +125,10 @@ export default function LoginPage() {
           <CardHeader className="text-center pb-4">
             <CardTitle className="flex items-center justify-center space-x-2 text-xl">
               <Lock className="w-5 h-5 text-blue-600" />
-              <span>Sign In</span>
+              <span>Σύνδεση</span>
             </CardTitle>
             <p className="text-sm text-gray-600 mt-2">
-              Access your child's speech therapy progress
+              Πρόσβαση στην πρόοδο της λογοθεραπείας του παιδιού σας
             </p>
           </CardHeader>
           
@@ -133,7 +137,7 @@ export default function LoginPage() {
               {/* Email Field */}
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email Address
+                  Διεύθυνση Email
                 </label>
                 <div className="relative">
                   <Input
@@ -141,7 +145,7 @@ export default function LoginPage() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="Enter your email address"
+                    placeholder="Εισάγετε τη διεύθυνση email σας"
                     className="pl-10 h-12 text-base"
                     disabled={loading}
                   />
@@ -152,7 +156,7 @@ export default function LoginPage() {
               {/* Password Field */}
               <div className="space-y-2">
                 <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
+                  Κωδικός Πρόσβασης
                 </label>
                 <div className="relative">
                   <Input
@@ -160,7 +164,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder="Εισάγετε τον κωδικό σας"
                     className="pl-10 pr-10 h-12 text-base"
                     disabled={loading}
                   />
@@ -200,10 +204,10 @@ export default function LoginPage() {
                 {loading ? (
                   <div className="flex items-center space-x-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>Signing in...</span>
+                    <span>Σύνδεση...</span>
                   </div>
                 ) : (
-                  "Sign In"
+                  "Σύνδεση"
                 )}
               </Button>
             </form>
@@ -212,21 +216,21 @@ export default function LoginPage() {
             <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="text-center space-y-3">
                 <p className="text-sm text-gray-600">
-                  Don't have an account?{" "}
+                  Δεν έχετε λογαριασμό;{" "}
                   <button 
                     onClick={() => router.push("/signup")}
                     className="text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    Sign Up
+                    Εγγραφή
                   </button>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Are you a therapist?{" "}
+                  Είστε λογοθεραπευτής;{" "}
                   <button 
                     onClick={() => router.push("/admin/login")}
                     className="text-purple-600 hover:text-purple-700 font-medium"
                   >
-                    Admin Login
+                    Σύνδεση Διαχειριστή
                   </button>
                 </p>
               </div>
@@ -244,8 +248,8 @@ export default function LoginPage() {
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-4">
               <p className="text-sm text-blue-800">
-                <strong>Need Help?</strong><br />
-                Contact your speech therapist if you're having trouble accessing your account.
+                <strong>Χρειάζεστε βοήθεια;</strong><br />
+                Επικοινωνήστε με τον λογοθεραπευτή σας αν αντιμετωπίζετε προβλήματα πρόσβασης στον λογαριασμό σας.
               </p>
             </CardContent>
           </Card>

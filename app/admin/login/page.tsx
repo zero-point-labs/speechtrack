@@ -66,12 +66,16 @@ export default function AdminLoginPage() {
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg mb-4"
+            className="w-20 h-20 mx-auto mb-4"
           >
-            <MessageCircle className="w-8 h-8 text-white" />
+            <img 
+              src="/logo_transparent_bg.png" 
+              alt="Marilena Nestoros Logo" 
+              className="w-full h-full object-contain"
+            />
           </motion.div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">SpeechTrack</h1>
-          <p className="text-gray-600">Admin Panel Access</p>
+          <p className="text-2xl font-semibold text-gray-800">Μαριλένα Νέστορος</p>
+          <p className="text-base text-gray-600">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
         </div>
 
         {/* Login Card */}

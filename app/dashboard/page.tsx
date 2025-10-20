@@ -2133,16 +2133,19 @@ function DashboardContent() {
             </Button>
             <div className="flex items-center space-x-3">
               <motion.div 
-                className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg"
+                className="w-10 h-10"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <MessageCircle className="w-5 h-5 text-white" />
+                <img 
+                  src="/logo_transparent_bg.png" 
+                  alt="Marilena Nestoros Logo" 
+                  className="w-full h-full object-contain"
+                />
               </motion.div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  SpeechTrack
-                </h1>
+                <h1 className="text-base font-semibold text-gray-800">Μαριλένα Νέστορος</h1>
+                <p className="text-[10px] md:text-xs text-gray-600">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
               </div>
             </div>
           </div>
