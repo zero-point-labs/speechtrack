@@ -34,8 +34,8 @@ export default function Home() {
               className="w-full h-full object-contain"
             />
           </div>
-          <p className="text-2xl font-semibold text-gray-800">Μαριλένα Νέστορος</p>
-          <p className="text-base text-gray-600">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
+          <p className="text-xl font-semibold text-gray-800 leading-tight">Κέντρο Ειδικών Θεραπειών<br />Μαριλένα Νέστωρος</p>
+          <p className="text-sm text-gray-600">Λογοπαθολόγος/Λογοθεραπεύτρια</p>
         </motion.div>
 
         {/* Sign Up / Login Card */}

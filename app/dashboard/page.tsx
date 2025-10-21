@@ -2144,8 +2144,8 @@ function DashboardContent() {
                 />
               </motion.div>
               <div>
-                <h1 className="text-base font-semibold text-gray-800">Μαριλένα Νέστορος</h1>
-                <p className="text-[10px] md:text-xs text-gray-600">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
+                <h1 className="text-sm font-semibold text-gray-800 leading-tight">Κέντρο Ειδικών Θεραπειών<br />Μαριλένα Νέστωρος</h1>
+                <p className="text-[9px] md:text-[10px] text-gray-600">Λογοπαθολόγος/Λογοθεραπεύτρια</p>
               </div>
             </div>
           </div>

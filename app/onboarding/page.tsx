@@ -176,8 +176,8 @@ export default function OnboardingPage() {
               className="w-full h-full object-contain"
             />
           </motion.div>
-          <h1 className="text-2xl font-semibold text-gray-800 mb-1">Μαριλένα Νέστορος</h1>
-          <p className="text-base text-gray-600 mb-2">Λογοθεραπευτής & Ειδικός Γλώσσας</p>
+          <h1 className="text-xl font-semibold text-gray-800 mb-1 leading-tight">Κέντρο Ειδικών Θεραπειών<br />Μαριλένα Νέστωρος</h1>
+          <p className="text-sm text-gray-600 mb-2">Λογοπαθολόγος/Λογοθεραπεύτρια</p>
           <p className="text-gray-600">Ας δημιουργήσουμε το προφίλ του παιδιού σας</p>
         </div>
 
