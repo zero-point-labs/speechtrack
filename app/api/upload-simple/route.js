@@ -44,7 +44,7 @@ export async function POST(request) {
       ContentType: file.type,
       Metadata: {
         'session-id': sessionId,
-        'original-name': file.name,
+        'original-name': encodeURIComponent(file.name),
       }
     });
 
