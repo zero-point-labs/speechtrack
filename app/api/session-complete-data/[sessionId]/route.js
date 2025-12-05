@@ -110,7 +110,7 @@ export async function GET(request, { params }) {
       }
     });
     
-    console.log(`📁 Found ${filesResponse.documents.length} files: ${materials.pdfs.length} PDFs, ${materials.images.length} images, ${materials.videos.length} videos`);
+    console.log(`📁 Found ${filesResponse.documents.length} files: ${materials.pdfs.length} documents (PDF/Word/etc), ${materials.images.length} images, ${materials.videos.length} videos`);
     
     // ===== FORMAT COMPLETE SESSION RESPONSE =====
     

@@ -200,13 +200,32 @@ function SessionEditPageContent() {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper to check if file is a document type
+  const isDocumentType = (mimeType: string, fileName: string) => {
+    const documentMimeTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/csv',
+      'application/rtf',
+      'application/vnd.oasis.opendocument.text',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+    const documentExtensions = ['.pdf', '.doc', '.docx', '.txt', '.csv', '.rtf', '.odt', '.xls', '.xlsx', '.ppt', '.pptx'];
+    return documentMimeTypes.includes(mimeType) || documentExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+  };
+
   // File upload handlers
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length) {
       try {
         for (const file of files) {
-          if (file.type === 'application/pdf') {
+          if (isDocumentType(file.type, file.name)) {
             // Show file size info for user awareness
             const fileSize = fileService.formatFileSize(file.size);
             const UPLOAD_SIZE_LIMIT = 4 * 1024 * 1024; // 4MB
@@ -233,12 +252,12 @@ function SessionEditPageContent() {
               }
             }));
           } else {
-            alert('Παρακαλώ επιλέξτε μόνο αρχεία PDF');
+            alert('Παρακαλώ επιλέξτε έγγραφα (PDF, Word, Excel, κ.ά.)');
           }
         }
       } catch (error) {
-        console.error('Error uploading PDF:', error);
-        alert(`Σφάλμα κατά τη μεταφόρτωση του PDF: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
+        console.error('Error uploading document:', error);
+        alert(`Σφάλμα κατά τη μεταφόρτωση του εγγράφου: ${error instanceof Error ? error.message : 'Άγνωστο σφάλμα'}`);
       }
       // Reset input
       if (pdfInputRef.current) {
@@ -870,7 +889,7 @@ function SessionEditPageContent() {
         ref={pdfInputRef}
         type="file"
         multiple
-        accept=".pdf,application/pdf"
+        accept=".pdf,.doc,.docx,.txt,.csv,.rtf,.odt,.xls,.xlsx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,application/rtf,application/vnd.oasis.opendocument.text,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
         onChange={handlePDFUpload}
         style={{ display: 'none' }}
       />
@@ -1288,16 +1307,22 @@ function SessionEditPageContent() {
 
 
 
-              {/* PDF Files */}
+              {/* Document Files (PDF, Word, Excel, etc.) */}
               <div className="space-y-4">
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <FileText className="w-5 h-5 text-red-500 mr-2" />
-                    Έγγραφα PDF
+                    Έγγραφα
+                    <Badge variant="outline" className="ml-2 text-xs text-gray-500">
+                      κυρίως PDF
+                    </Badge>
                     <Badge variant="outline" className="ml-2">
                       {sessionData.materials.pdfs.length}
                     </Badge>
                   </h3>
+                  <p className="text-xs text-gray-500">
+                    Υποστηρίζονται: PDF, Word (.doc, .docx), Excel (.xls, .xlsx), PowerPoint (.ppt, .pptx), κείμενο (.txt), CSV και άλλα
+                  </p>
                   <Button
                     disabled={uploadProgress?.isUploading}
                     onClick={() => pdfInputRef.current?.click()}
@@ -1305,7 +1330,7 @@ function SessionEditPageContent() {
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
                     <Upload className="w-4 h-4 mr-2" />
-                    Προσθήκη PDF
+                    Προσθήκη Εγγράφου
                   </Button>
                 </div>
 
@@ -1359,8 +1384,8 @@ function SessionEditPageContent() {
                   {sessionData.materials.pdfs.length === 0 && (
                     <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
                       <FileText className="w-16 h-16 text-red-300 mx-auto mb-4" />
-                      <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν έγγραφα PDF</p>
-                      <p className="text-xs text-gray-500">Προσθέστε έγγραφα PDF κάνοντας κλικ στο κουμπί παραπάνω</p>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν έγγραφα</p>
+                      <p className="text-xs text-gray-500">Προσθέστε PDF, Word, Excel ή άλλα έγγραφα κάνοντας κλικ στο κουμπί παραπάνω</p>
                     </div>
                   )}
                 </div>

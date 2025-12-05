@@ -594,12 +594,13 @@ function SessionPageContent() {
               >
                 <CardContent className="pt-0 space-y-6">
                   
-                  {/* PDFs */}
+                  {/* Documents (PDF, Word, Excel, etc.) */}
                   {session.materials.pdfs.length > 0 && (
                     <div>
                       <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                         <FileText className="w-4 h-4 mr-2 text-red-500" />
-                        Έγγραφα PDF
+                        Έγγραφα
+                        <span className="ml-2 text-xs text-gray-500 font-normal">(PDF, Word κ.ά.)</span>
                       </h4>
                       <div className="space-y-2">
                         {session.materials.pdfs.map((pdf) => (

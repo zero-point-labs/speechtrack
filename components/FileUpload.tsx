@@ -45,7 +45,22 @@ interface FileWithProgress extends File {
 
 const FileUpload: React.FC<FileUploadProps> = ({
   onFilesUploaded,
-  acceptedFileTypes = ['image/*', 'application/pdf', 'video/*'],
+  acceptedFileTypes = [
+    'image/*', 
+    'application/pdf', 
+    'video/*',
+    // Additional document types
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+    'text/csv',
+    'application/rtf',
+    'application/vnd.oasis.opendocument.text',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ],
   maxFileSize = 50 * 1024 * 1024, // 50MB default
   maxFiles = 10,
   sessionId
@@ -53,10 +68,31 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  const getFileIcon = (type: string) => {
+  const getFileIcon = (type: string, fileName: string = '') => {
+    // Check for images
     if (type.includes('image')) return <ImageIcon className="w-5 h-5 text-blue-500" />;
+    
+    // Check for videos
     if (type.includes('video')) return <Video className="w-5 h-5 text-purple-500" />;
-    if (type.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
+    
+    // Check for different document types with specific colors
+    const lowerName = fileName.toLowerCase();
+    if (type.includes('pdf') || lowerName.endsWith('.pdf')) {
+      return <FileText className="w-5 h-5 text-red-500" />;
+    }
+    if (type.includes('word') || lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
+      return <FileText className="w-5 h-5 text-blue-600" />;
+    }
+    if (type.includes('excel') || type.includes('spreadsheet') || lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx') || lowerName.endsWith('.csv')) {
+      return <FileText className="w-5 h-5 text-green-600" />;
+    }
+    if (type.includes('powerpoint') || type.includes('presentation') || lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
+      return <FileText className="w-5 h-5 text-orange-500" />;
+    }
+    if (type.includes('text') || lowerName.endsWith('.txt') || lowerName.endsWith('.rtf')) {
+      return <FileText className="w-5 h-5 text-gray-600" />;
+    }
+    
     return <File className="w-5 h-5 text-gray-500" />;
   };
 
@@ -241,7 +277,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    {getFileIcon(file.type)}
+                    {getFileIcon(file.type, file.name)}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {file.name}
@@ -297,7 +333,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
       {/* Upload Info */}
       <div className="text-xs text-gray-500 space-y-1">
-        <p>Υποστηριζόμενοι τύποι: Εικόνες, PDF, Βίντεο</p>
+        <p>Υποστηριζόμενοι τύποι: Εικόνες, Έγγραφα (PDF, Word, Excel κ.ά.), Βίντεο</p>
         <p>Μέγιστο μέγεθος αρχείου: {formatFileSize(maxFileSize)}</p>
         <p>Μέγιστος αριθμός αρχείων: {maxFiles}</p>
       </div>

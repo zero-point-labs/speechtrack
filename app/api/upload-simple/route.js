@@ -52,12 +52,38 @@ export async function POST(request) {
     console.log(`✅ Uploaded to R2: ${r2Key}`);
 
     // Determine file type category (must match enum in database)
-    const getFileTypeCategory = (mimeType) => {
-      if (mimeType?.includes('pdf')) return 'pdf';
+    // All document types (PDF, Word, Excel, etc.) are stored as 'pdf' for backwards compatibility
+    const getFileTypeCategory = (mimeType, fileName) => {
+      // Check for images first
       if (mimeType?.includes('image')) return 'image';
+      
+      // Check for videos
       if (mimeType?.includes('video')) return 'video';
+      
+      // Check for audio
       if (mimeType?.includes('audio')) return 'audio';
-      return 'pdf'; // Default fallback
+      
+      // Document types - all stored as 'pdf' for backwards compatibility with existing data structure
+      const documentMimeTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'text/csv',
+        'application/rtf',
+        'application/vnd.oasis.opendocument.text',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      ];
+      
+      const documentExtensions = ['.pdf', '.doc', '.docx', '.txt', '.csv', '.rtf', '.odt', '.xls', '.xlsx', '.ppt', '.pptx'];
+      
+      if (documentMimeTypes.includes(mimeType)) return 'pdf';
+      if (fileName && documentExtensions.some(ext => fileName.toLowerCase().endsWith(ext))) return 'pdf';
+      
+      return 'pdf'; // Default fallback for documents
     };
 
     // Save metadata to Appwrite database
@@ -71,7 +97,7 @@ export async function POST(request) {
         fileId: fileId,        // The R2 file identifier  
         sessionId: sessionId,
         fileName: file.name,
-        fileType: getFileTypeCategory(file.type), // Must be enum value
+        fileType: getFileTypeCategory(file.type, file.name), // Must be enum value
         fileSize: file.size,
         uploadedBy: 'admin',   // TODO: Get from auth session
         description: r2Key     // Store R2 key in description field
